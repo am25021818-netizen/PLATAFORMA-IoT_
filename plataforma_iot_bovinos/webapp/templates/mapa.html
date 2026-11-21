@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Geolocalización & Potreros - Bovinos IoT{% endblock %}
+{% block page_title %}Monitoreo Georreferenciado & Geocercas{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <!-- Mapa Principal -->
+  <div class="col-12 col-xl-8">
+    <div class="card-custom p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 text-secondary">
+          <i class="bi bi-map text-primary"></i> Cobertura Satelital Valle del Mezquital, Hidalgo
+        </h6>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-secondary" onclick="map.flyTo([20.37542, -99.65431], 14)">Huichapan</button>
+          <button class="btn btn-outline-secondary" onclick="map.flyTo([20.52118, -99.63005], 14)">Tecozautla</button>
+          <button class="btn btn-outline-secondary" onclick="map.flyTo([20.48620, -99.21780], 14)">Ixmiquilpan</button>
+        </div>
+      </div>
+      <div id="map"></div>
+      <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
+        <div>
+          <span class="status-pill online"></span> En Línea (&lt;10m) &nbsp;|&nbsp;
+          <span class="status-pill warning"></span> Retrasado (10-30m) &nbsp;|&nbsp;
+          <span class="status-pill offline"></span> Sin Señal (&gt;30m)
+        </div>
+        <div>Círculos sombreados: Potreros / Geocercas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detalle del Bovino y Ruta -->
+  <div class="col-12 col-xl-4">
+    <div class="card-custom p-3 h-100">
+      <h6 class="fw-bold mb-3 text-secondary border-bottom pb-2">
+        <i class="bi bi-info-circle text-primary"></i> Telemetría en Tiempo Real
+      </h6>
+      <div id="detalle-bovino-panel">
+        <div class="text-center text-muted py-5">
+          <i class="bi bi-cursor text-secondary fs-1 opacity-50"></i>
+          <p class="mt-2 small">Selecciona un marcador en el mapa para inspeccionar telemetría y trazar su ruta histórica de 24 horas.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let map;
+  let markers = {};
+  let potreroCircles = [];
+  let historicalPolyline = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+    cargarPotreros();
+    cargarBovinos();
+    setInterval(cargarBovinos, 20000);
+  });
+
+  function initMap() {
+    map = L.map('map').setView([20.37542, -99.65431], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors | Bovinos IoT'
+    }).addTo(map);
+  }
+
+  async function cargarPotreros() {
+    try {
+      const res = await fetch('/api/potreros');
+      const data = await res.json();
+      data.forEach(p => {
+        const circle = L.circle([p.lat_centro, p.lon_centro], {
+          color: '#2563eb',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.12,
+          radius: p.radio_m || 400
+        }).addTo(map);
+        circle.bindTooltip(`<b>Potrero: ${p.nombre}</b><br>${p.rancho}`, { direction: 'top' });
+        potreroCircles.push(circle);
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function cargarBovinos() {
+    try {
+      const res = await fetch('/api/bovinos');
+      const bovinos = await res.json();
+      bovinos.forEach(b => {
+        if (!b.lat || !b.lon) return;
+        const color = b.vigencia_color === 'verde' ? '#10b981' : (b.vigencia_color === 'amarillo' ? '#f59e0b' : '#ef4444');
+        if (markers[b.id]) {
+          markers[b.id].setLatLng([b.lat, b.lon]);
+        } else {
+          const marker = L.circleMarker([b.lat, b.lon], {
+            radius: 9,
+            fillColor: color,
+            color: '#ffffff',
+            weight: 2,
+            fillOpacity: 0.95
+          }).addTo(map);
+
+          marker.bindPopup(`<b>${b.nombre}</b><br>${b.arete}<br><small>${b.rancho}</small>`);
+          marker.on('click', () => mostrarDetalle(b));
+          markers[b.id] = marker;
+        }
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function mostrarDetalle(b) {
+    map.flyTo([b.lat, b.lon], 16);
+    const panel = document.getElementById('detalle-bovino-panel');
+    const badgeClass = b.vigencia_color === 'verde' ? 'bg-success' : (b.vigencia_color === 'amarillo' ? 'bg-warning text-dark' : 'bg-danger');
+
+    panel.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0 text-dark">${b.nombre}</h5>
+        <span class="badge ${badgeClass}">${b.vigencia_etiqueta}</span>
+      </div>
+      <ul class="list-group list-group-flush small mb-3">
+        <li class="list-group-item d-flex justify-content-between px-0">
+          <span class="text-muted">Arete SAGARPA:</span><strong>${b.arete}</strong>
+        </li>
+        <li class="list-group-item d-flex justify-content-between px-0">
+          <span class="text-muted">Raza y Sexo:</span><span>${b.raza} (${b.sexo})</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between px-0">
+          <span class="text-muted">Rancho y Potrero:</span><span>${b.rancho} - ${b.potrero}</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between px-0">
+          <span class="text-muted">Collar LoRa:</span><span>${b.collar_nombre || 'N/A'}</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between px-0">
+          <span class="text-muted">Nivel Batería:</span><strong class="${b.bateria_pct < 25 ? 'text-danger' : 'text-success'}">${b.bateria_pct}%</strong>
+        </li>
+        <li class="list-group-item d-flex justify-content-between px-0">
+          <span class="text-muted">RSSI LoRa:</span><span>${b.rssi || '-'} dBm</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between px-0">
+          <span class="text-muted">Altitud / Vel:</span><span>${b.altitud || 0} m / ${b.velocidad || 0} km/h</span>
+        </li>
+      </ul>
+      <button class="btn btn-sm btn-outline-primary w-100" onclick="trazarRuta(${b.id})">
+        <i class="bi bi-clock-history"></i> Trazar Ruta Histórica (24h)
+      </button>
+    `;
+    trazarRuta(b.id);
+  }
+
+  async function trazarRuta(animalId) {
+    try {
+      const res = await fetch(`/api/historial/${animalId}?horas=24`);
+      const hist = await res.json();
+      if (historicalPolyline) map.removeLayer(historicalPolyline);
+      if (!hist || hist.length === 0) return;
+      const pts = hist.map(h => [h.lat, h.lon]);
+      historicalPolyline = L.polyline(pts, {
+        color: '#1d4ed8',
+        weight: 3.5,
+        opacity: 0.85,
+        dashArray: '5, 5'
+      }).addTo(map);
+    } catch (e) { console.error(e); }
+  }
+
+  function refrescarDatosGlobales() {
+    cargarBovinos();
+  }
+</script>
+{% endblock %}

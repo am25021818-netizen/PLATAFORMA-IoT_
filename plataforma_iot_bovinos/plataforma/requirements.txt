@@ -1,0 +1,7 @@
+paho-mqtt==2.1.0
+streamlit==1.40.0
+pandas==2.2.3
+folium==0.17.0
+streamlit-folium==0.22.1
+requests==2.32.3
+pytest==8.3.3

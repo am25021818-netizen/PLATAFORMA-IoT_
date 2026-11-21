@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Bovinos IoT{% endblock %}
+{% block page_title %}
+  Dashboard Operativo - 
+  {% if session.user.rol == 'administrador' %}
+    Administrador General del Sistema
+  {% elif session.user.rol == 'propietario' %}
+    Panel del Propietario de Ganado
+  {% elif session.user.rol == 'operador_campo' %}
+    Encargado / Operador de Campo
+  {% else %}
+    Técnico de Mantenimiento & Hardware LoRa
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Tarjeta de Bienvenida y Rol -->
+<div class="alert alert-light border d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h5 class="mb-1 text-dark fw-bold">Bienvenido, {{ session.user.nombre }}</h5>
+    <div class="text-muted small">
+      {% if session.user.rol == 'administrador' %}
+        Visión global multi-ranchos, telemetría y supervisión de nodos en todo el Valle del Mezquital.
+      {% elif session.user.rol == 'propietario' %}
+        Supervisión consolidada de tus hatos distribuidos en múltiples ranchos del Valle del Mezquital.
+      {% elif session.user.rol == 'operador_campo' %}
+        Monitoreo de ganado y potreros asignados bajo tu cuidado.
+      {% else %}
+        Diagnóstico de hardware Heltec ESP32, batería de collares y calidad de señal RSSI LoRa.
+      {% endif %}
+    </div>
+  </div>
+  <span class="badge bg-primary text-uppercase px-3 py-2 fs-6">
+    {{ session.user.rol.replace('_', ' ') }}
+  </span>
+</div>
+
+<!-- Métricas Clave según Rol -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card-blue">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-muted small fw-bold text-uppercase">Ranchos Supervisados</div>
+          <div class="h3 fw-bold mb-0 text-dark" id="dash-ranchos">-</div>
+          <small class="text-primary"><i class="bi bi-geo-alt"></i> Valle del Mezquital</small>
+        </div>
+        <i class="bi bi-houses fs-1 text-primary opacity-50"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card-blue">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-muted small fw-bold text-uppercase">Bovinos Asignados</div>
+          <div class="h3 fw-bold mb-0 text-dark" id="dash-animales">-</div>
+          <small class="text-success"><i class="bi bi-check-circle"></i> Con collar GPS</small>
+        </div>
+        <i class="bi bi-card-checklist fs-1 text-primary opacity-50"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card-green">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-muted small fw-bold text-uppercase">En Línea (&lt;10m)</div>
+          <div class="h3 fw-bold mb-0 text-success" id="dash-verde">-</div>
+          <small class="text-muted">Transmitiendo LoRa</small>
+        </div>
+        <i class="bi bi-wifi fs-1 text-success opacity-50"></i>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="stat-card-red">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-muted small fw-bold text-uppercase">Alertas Activas</div>
+          <div class="h3 fw-bold mb-0 text-danger" id="dash-alertas">-</div>
+          <small class="text-muted">Retrasados/Sin señal: <strong id="dash-rojo">-</strong></small>
+        </div>
+        <i class="bi bi-bell-fill fs-1 text-danger opacity-50"></i>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vista Rápida del Mapa y Alertas -->
+<div class="row g-4">
+  <div class="col-12 col-xl-8">
+    <div class="card-custom p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 text-secondary">
+          <i class="bi bi-geo-alt-fill text-primary"></i> Localización Geográfica de Ganado
+        </h6>
+        <a href="/mapa" class="btn btn-sm btn-outline-primary">Ver Mapa Completo <i class="bi bi-arrow-right"></i></a>
+      </div>
+      <div id="map-preview" style="height: 380px; border-radius: 8px;"></div>
+    </div>
+  </div>
+
+  <div class="col-12 col-xl-4">
+    <div class="card-custom p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 text-secondary">
+          <i class="bi bi-exclamation-octagon-fill text-danger"></i> Alertas de tu Jurisdicción
+        </h6>
+        <a href="/alertas" class="btn btn-sm btn-outline-secondary">Ver todas</a>
+      </div>
+      <div id="contenedor-alertas-resumen" class="d-flex flex-column gap-2">
+        <div class="text-muted small text-center py-4">Cargando alertas...</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let mapPreview;
+  let markersPreview = {};
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    initPreviewMap();
+    await recargarDashboard();
+    setInterval(recargarDashboard, 20000);
+  });
+
+  function initPreviewMap() {
+    mapPreview = L.map('map-preview').setView([20.37542, -99.65431], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap | Bovinos IoT'
+    }).addTo(mapPreview);
+  }
+
+  async function recargarDashboard() {
+    try {
+      const res = await fetch('/api/dashboard');
+      const d = await res.json();
+      document.getElementById('dash-ranchos').innerText = d.total_ranchos;
+      document.getElementById('dash-animales').innerText = d.total_animales;
+      document.getElementById('dash-verde').innerText = d.vigencia.verde;
+      document.getElementById('dash-rojo').innerText = d.vigencia.rojo;
+      document.getElementById('dash-alertas').innerText = d.alertas_activas;
+
+      // Cargar bovinos en mapa preview
+      const resBov = await fetch('/api/bovinos');
+      const bovinos = await resBov.json();
+      bovinos.forEach(b => {
+        if (!b.lat || !b.lon) return;
+        const color = b.vigencia_color === 'verde' ? '#10b981' : (b.vigencia_color === 'amarillo' ? '#f59e0b' : '#ef4444');
+        if (markersPreview[b.id]) {
+          markersPreview[b.id].setLatLng([b.lat, b.lon]);
+        } else {
+          markersPreview[b.id] = L.circleMarker([b.lat, b.lon], {
+            radius: 7,
+            fillColor: color,
+            color: '#ffffff',
+            weight: 2,
+            fillOpacity: 0.9
+          }).addTo(mapPreview).bindTooltip(`<b>${b.nombre}</b><br>${b.rancho}`);
+        }
+      });
+
+      // Alertas
+      const resAlt = await fetch('/api/alertas?activas=true');
+      const alertas = await resAlt.json();
+      const cont = document.getElementById('contenedor-alertas-resumen');
+      cont.innerHTML = '';
+      if (alertas.length === 0) {
+        cont.innerHTML = '<div class="alert alert-light border small text-center text-muted mb-0">Sin alertas pendientes en tus ranchos.</div>';
+      } else {
+        alertas.slice(0, 4).forEach(a => {
+          const item = document.createElement('div');
+          item.className = 'p-2 border rounded small bg-light';
+          item.innerHTML = `
+            <div class="d-flex justify-content-between fw-bold text-danger">
+              <span>${a.tipo}</span>
+              <span class="text-muted" style="font-size:0.75rem">${a.creada_en.split(' ')[1]}</span>
+            </div>
+            <div><strong>${a.animal_nombre}</strong>: ${a.mensaje}</div>
+            <div class="text-muted" style="font-size:0.75rem"><i class="bi bi-geo-alt"></i> ${a.rancho_nombre || ''}</div>
+          `;
+          cont.appendChild(item);
+        });
+      }
+    } catch (e) { console.error(e); }
+  }
+</script>
+{% endblock %}

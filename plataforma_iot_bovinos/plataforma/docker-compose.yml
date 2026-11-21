@@ -1,0 +1,37 @@
+services:
+  # Broker MQTT integrado para funcionamiento autónomo
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: iteshu_mosquitto_broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    command: mosquitto -c /mosquitto-no-auth.conf
+    volumes:
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
+  # Plataforma Web e Ingesta Python (Streamlit + Paho MQTT)
+  plataforma-iot:
+    build: .
+    container_name: iteshu_plataforma_iot
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    ports:
+      - "8501:8501"
+    environment:
+      # Apunta por defecto al broker local de la red Docker o a una IP externa si se define
+      - MQTT_BROKER_HOST=${MQTT_BROKER_HOST:-mosquitto}
+      - MQTT_BROKER_PORT=${MQTT_BROKER_PORT:-1883}
+      - DB_PATH=/app/data/datos_iot.db
+    volumes:
+      # Persistencia de SQLite en tu equipo aunque reinicies o reconstruyas el contenedor
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:

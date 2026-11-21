@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Alertas y Eventos - Bovinos IoT{% endblock %}
+{% block page_title %}Bitácora de Alertas e Incidencias{% endblock %}
+
+{% block content %}
+<div class="card-custom p-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0 text-secondary">
+      <i class="bi bi-bell-fill text-danger"></i> Registro de Eventos del Sistema
+    </h6>
+    <div class="btn-group btn-group-sm">
+      <button class="btn btn-outline-danger active" id="btn-activas" onclick="filtrarAlertas(true)">Solo Activas</button>
+      <button class="btn btn-outline-secondary" id="btn-todas" onclick="filtrarAlertas(false)">Historial Completo</button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-custom align-middle mb-0">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Tipo Alerta</th>
+          <th>Bovino Asignado</th>
+          <th>Mensaje / Detalle</th>
+          <th>Fecha y Hora</th>
+          <th>Estado</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-alertas-body">
+        <tr><td colspan="7" class="text-center py-4 text-muted">Cargando alertas...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let soloActivas = true;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarAlertas();
+  });
+
+  function filtrarAlertas(activas) {
+    soloActivas = activas;
+    document.getElementById('btn-activas').classList.toggle('active', activas);
+    document.getElementById('btn-todas').classList.toggle('active', !activas);
+    cargarAlertas();
+  }
+
+  async function cargarAlertas() {
+    try {
+      const res = await fetch(`/api/alertas?activas=${soloActivas}`);
+      const alertas = await res.json();
+      const tbody = document.getElementById('tabla-alertas-body');
+      tbody.innerHTML = '';
+
+      if (alertas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No se registran alertas bajo este criterio.</td></tr>';
+        return;
+      }
+
+      alertas.forEach(a => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>#${a.id}</td>
+          <td><span class="badge ${a.tipo === 'sin_comunicacion' ? 'bg-danger' : 'bg-warning text-dark'}">${a.tipo}</span></td>
+          <td><strong>${a.animal_nombre || 'N/A'}</strong> <small class="text-muted">(${a.arete || ''})</small></td>
+          <td>${a.mensaje}</td>
+          <td><small class="text-muted">${a.creada_en}</small></td>
+          <td>
+            ${a.atendida ? '<span class="badge bg-success">Atendida</span>' : '<span class="badge bg-danger">Pendiente</span>'}
+          </td>
+          <td>
+            ${!a.atendida ? `<button class="btn btn-sm btn-outline-success" onclick="atenderAlerta(${a.id})"><i class="bi bi-check2"></i> Atender</button>` : '<span class="text-muted small">Cerrada</span>'}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function atenderAlerta(id) {
+    try {
+      const res = await fetch(`/api/alertas/atender/${id}`, { method: 'POST' });
+      if (res.ok) {
+        cargarAlertas();
+        actualizarBadgeAlertas();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function refrescarDatosGlobales() {
+    cargarAlertas();
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Hato Bovino - Bovinos IoT{% endblock %}
+{% block page_title %}Inventario de Bovinos y Monitoreo Individual{% endblock %}
+
+{% block content %}
+<div class="card-custom p-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0 text-secondary">
+      <i class="bi bi-card-checklist text-primary"></i> Padrón Ganadero y Estado Operativo
+    </h6>
+    <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Valle del Mezquital</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-custom align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Arete / ID</th>
+          <th>Nombre</th>
+          <th>Raza / Sexo</th>
+          <th>Rancho & Potrero</th>
+          <th>GPS (Lat, Lon)</th>
+          <th>Batería</th>
+          <th>Señal LoRa</th>
+          <th>Estado Vigencia</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-bovinos-body">
+        <tr><td colspan="9" class="text-center py-4 text-muted">Cargando bovinos...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarTablaBovinos();
+  });
+
+  async function cargarTablaBovinos() {
+    try {
+      const res = await fetch('/api/bovinos');
+      const bovinos = await res.json();
+      const tbody = document.getElementById('tabla-bovinos-body');
+      tbody.innerHTML = '';
+
+      bovinos.forEach(b => {
+        const tr = document.createElement('tr');
+        const badgeClass = b.vigencia_color === 'verde' ? 'bg-success' : (b.vigencia_color === 'amarillo' ? 'bg-warning text-dark' : 'bg-danger');
+
+        tr.innerHTML = `
+          <td><code>${b.arete}</code></td>
+          <td><strong>${b.nombre}</strong></td>
+          <td>${b.raza} <span class="text-muted small">(${b.sexo})</span></td>
+          <td>${b.rancho} <br><small class="text-muted">${b.potrero || 'Sin asignar'}</small></td>
+          <td><code>${b.lat ? b.lat.toFixed(5) : '0.0'}, ${b.lon ? b.lon.toFixed(5) : '0.0'}</code></td>
+          <td>
+            <div class="d-flex align-items-center gap-1">
+              <i class="bi bi-battery-charging text-muted"></i>
+              <strong class="${b.bateria_pct < 25 ? 'text-danger' : 'text-dark'}">${b.bateria_pct}%</strong>
+            </div>
+          </td>
+          <td>${b.rssi ? b.rssi + ' dBm' : '-'}</td>
+          <td><span class="badge ${badgeClass}">${b.vigencia_etiqueta}</span></td>
+          <td>
+            <a href="/mapa" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-geo-alt"></i> Localizar
+            </a>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function refrescarDatosGlobales() {
+    cargarTablaBovinos();
+  }
+</script>
+{% endblock %}

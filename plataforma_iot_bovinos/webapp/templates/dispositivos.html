@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Nodos y Gateways - Bovinos IoT{% endblock %}
+{% block page_title %}Inventario de Dispositivos LoRa y Gateways{% endblock %}
+
+{% block content %}
+<div class="card-custom p-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h6 class="fw-bold mb-0 text-secondary">
+      <i class="bi bi-router text-primary"></i> Infraestructura de Hardware Heltec ESP32
+    </h6>
+    <span class="badge bg-secondary-subtle text-secondary border">Frecuencia ISM 915 MHz</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-custom align-middle mb-0">
+      <thead>
+        <tr>
+          <th>MAC / Identificador</th>
+          <th>Tipo Dispositivo</th>
+          <th>Nombre / Asignación</th>
+          <th>Rancho Base</th>
+          <th>Versión Firmware</th>
+          <th>Nivel Batería</th>
+          <th>Último Latido (Keepalive)</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-dispositivos-body">
+        <tr><td colspan="7" class="text-center py-4 text-muted">Cargando nodos...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarDispositivos();
+  });
+
+  async function cargarDispositivos() {
+    try {
+      const res = await fetch('/api/dispositivos');
+      const data = await res.json();
+      const tbody = document.getElementById('tabla-dispositivos-body');
+      tbody.innerHTML = '';
+
+      data.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><code>${d.mac_id}</code></td>
+          <td><span class="badge ${d.tipo === 'collar' ? 'bg-primary' : 'bg-dark'}">${d.tipo.toUpperCase()}</span></td>
+          <td><strong>${d.nombre}</strong></td>
+          <td>${d.rancho || 'General'}</td>
+          <td>v${d.firmware_ver}</td>
+          <td>${d.bateria_pct !== null ? d.bateria_pct + '%' : '<span class="text-muted">Corriente continua</span>'}</td>
+          <td><span class="status-pill ${d.estado_color === 'verde' ? 'online' : (d.estado_color === 'amarillo' ? 'warning' : 'offline')}"></span>${d.estado_etiqueta}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function refrescarDatosGlobales() {
+    cargarDispositivos();
+  }
+</script>
+{% endblock %}

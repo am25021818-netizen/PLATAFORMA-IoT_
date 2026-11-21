@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Métricas Globales - Bovinos IoT{% endblock %}
+{% block page_title %}Métricas & Analítica Global de Plataforma (Administrador){% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+  <!-- Promedios Telemetría -->
+  <div class="col-12 col-md-3">
+    <div class="card-custom p-3 text-center">
+      <div class="text-muted small fw-bold text-uppercase">Total Reportes GPS</div>
+      <div class="h2 fw-bold text-primary my-1" id="met-total-lecturas">-</div>
+      <small class="text-muted"><i class="bi bi-broadcast"></i> Tramas procesadas</small>
+    </div>
+  </div>
+  <div class="col-12 col-md-3">
+    <div class="card-custom p-3 text-center">
+      <div class="text-muted small fw-bold text-uppercase">Velocidad Promedio</div>
+      <div class="h2 fw-bold text-success my-1"><span id="met-vel-prom">-</span> <span class="fs-6 text-muted">km/h</span></div>
+      <small class="text-muted"><i class="bi bi-speedometer"></i> Movimiento del hato</small>
+    </div>
+  </div>
+  <div class="col-12 col-md-3">
+    <div class="card-custom p-3 text-center">
+      <div class="text-muted small fw-bold text-uppercase">Señal LoRa Promedio</div>
+      <div class="h2 fw-bold text-info my-1"><span id="met-rssi-prom">-</span> <span class="fs-6 text-muted">dBm</span></div>
+      <small class="text-muted"><i class="bi bi-reception-4"></i> Banda 915 MHz</small>
+    </div>
+  </div>
+  <div class="col-12 col-md-3">
+    <div class="card-custom p-3 text-center">
+      <div class="text-muted small fw-bold text-uppercase">Satélites en Fix</div>
+      <div class="h2 fw-bold text-warning my-1" id="met-sat-prom">-</div>
+      <small class="text-muted"><i class="bi bi-globe-americas"></i> Constelación GPS</small>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Gráfica de Bovinos por Rancho -->
+  <div class="col-12 col-lg-6">
+    <div class="card-custom p-3 h-100">
+      <h6 class="fw-bold mb-3 text-secondary">
+        <i class="bi bi-pie-chart-fill text-primary"></i> Población de Bovinos por Rancho / Municipio
+      </h6>
+      <div style="height: 280px; position: relative;">
+        <canvas id="chartRanchos"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráfica de Distribución de Razas -->
+  <div class="col-12 col-lg-6">
+    <div class="card-custom p-3 h-100">
+      <h6 class="fw-bold mb-3 text-secondary">
+        <i class="bi bi-bar-chart-fill text-success"></i> Distribución de Razas en Valle del Mezquital
+      </h6>
+      <div style="height: 280px; position: relative;">
+        <canvas id="chartRazas"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Salud de Baterías de Collares -->
+  <div class="col-12 col-lg-6">
+    <div class="card-custom p-3 h-100">
+      <h6 class="fw-bold mb-3 text-secondary">
+        <i class="bi bi-battery-charging text-warning"></i> Estado de Baterías de los Collares
+      </h6>
+      <div style="height: 260px; position: relative;">
+        <canvas id="chartBaterias"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Distribución de Alertas por Tipo -->
+  <div class="col-12 col-lg-6">
+    <div class="card-custom p-3 h-100">
+      <h6 class="fw-bold mb-3 text-secondary">
+        <i class="bi bi-exclamation-triangle-fill text-danger"></i> Incidencia de Alertas por Tipo
+      </h6>
+      <div style="height: 260px; position: relative;">
+        <canvas id="chartAlertas"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarMetricas();
+  });
+
+  async function cargarMetricas() {
+    try {
+      const res = await fetch('/api/metricas');
+      const data = await res.json();
+
+      // Indicadores
+      document.getElementById('met-total-lecturas').innerText = data.telemetria.total_lecturas || 0;
+      document.getElementById('met-vel-prom').innerText = data.telemetria.vel_promedio || 0;
+      document.getElementById('met-rssi-prom').innerText = data.telemetria.rssi_promedio || 0;
+      document.getElementById('met-sat-prom').innerText = data.telemetria.sat_promedio || 0;
+
+      // 1. Chart Ranchos
+      new Chart(document.getElementById('chartRanchos'), {
+        type: 'doughnut',
+        data: {
+          labels: data.ranchos.map(r => `${r.nombre} (${r.municipio})`),
+          datasets: [{
+            data: data.ranchos.map(r => r.cantidad),
+            backgroundColor: ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+
+      // 2. Chart Razas
+      new Chart(document.getElementById('chartRazas'), {
+        type: 'bar',
+        data: {
+          labels: data.razas.map(r => r.raza),
+          datasets: [{
+            label: 'Cabezas',
+            data: data.razas.map(r => r.cantidad),
+            backgroundColor: '#10b981',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+
+      // 3. Chart Baterías
+      new Chart(document.getElementById('chartBaterias'), {
+        type: 'pie',
+        data: {
+          labels: ['Óptima (≥70%)', 'Media (30-69%)', 'Crítica (<30%)'],
+          datasets: [{
+            data: [data.baterias.alta || 0, data.baterias.media || 0, data.baterias.baja || 0],
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+
+      // 4. Chart Alertas
+      new Chart(document.getElementById('chartAlertas'), {
+        type: 'bar',
+        data: {
+          labels: data.alertas_tipo.map(a => a.tipo),
+          datasets: [{
+            label: 'Total Eventos',
+            data: data.alertas_tipo.map(a => a.cantidad),
+            backgroundColor: '#ef4444',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+
+    } catch (e) {
+      console.error('Error cargando métricas:', e);
+    }
+  }
+</script>
+{% endblock %}

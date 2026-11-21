@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes de Actividad - Bovinos IoT{% endblock %}
+{% block page_title %}Reportes de Desplazamiento y Actividad de Ganado{% endblock %}
+
+{% block extra_css %}
+<style>
+  @media print {
+    /* Ocultar elementos no imprimibles */
+    #sidebar, .top-navbar, footer, .no-print, .dropdown, #sidebarOverlay {
+      display: none !important;
+    }
+    #content {
+      margin-left: 0 !important;
+      padding: 0 !important;
+    }
+    main {
+      padding: 0 !important;
+    }
+    .card-custom {
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+    }
+    body {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+    }
+    .table-custom th {
+      background-color: #e2e8f0 !important;
+      color: #000000 !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card-custom p-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 border-bottom pb-3">
+    <div>
+      <h6 class="fw-bold mb-1 text-secondary">
+        <i class="bi bi-file-earmark-bar-graph-fill text-primary"></i> Reporte Integral de Desplazamiento & Actividad
+      </h6>
+      <p class="small text-muted mb-0">Consolidado de telemetría GPS, distancias calculadas y comportamiento en potreros del Valle del Mezquital.</p>
+    </div>
+
+    <!-- Opciones de Filtro e Impresión -->
+    <div class="d-flex align-items-center gap-2 no-print">
+      <div class="dropdown">
+        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <i class="bi bi-filter"></i> Filtrar por Rancho
+        </button>
+        <ul class="dropdown-menu" id="dropdown-filtro-ranchos">
+          <li><a class="dropdown-item" href="javascript:void(0)" onclick="filtrarRancho(null, 'Todos los Ranchos')">Todos los Ranchos</a></li>
+        </ul>
+      </div>
+
+      <!-- Único botón de exportación: Imprimir Reportes / Guardar PDF -->
+      <button onclick="window.print()" class="btn btn-primary-custom btn-sm">
+        <i class="bi bi-printer-fill me-1"></i> Imprimir Reporte
+      </button>
+    </div>
+  </div>
+
+  <!-- Resumen de Filtro Actual -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <span class="badge bg-light text-dark border" id="badge-filtro-activo">Filtro: Todos los Ranchos</span>
+    <span class="small text-muted" id="lbl-total-filas">Cargando datos...</span>
+  </div>
+
+  <!-- Tabla de Reportes -->
+  <div class="table-responsive">
+    <table class="table table-hover table-custom align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Arete</th>
+          <th>Nombre</th>
+          <th>Raza / Sexo</th>
+          <th>Rancho / Potrero</th>
+          <th>Collar LoRa</th>
+          <th>Batería</th>
+          <th>Puntos GPS</th>
+          <th>Dist. Estimada</th>
+          <th>Vel. Máx / Prom</th>
+          <th>Última Conexión</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-reporte-body">
+        <tr><td colspan="11" class="text-center py-4 text-muted">Generando reporte de actividad...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let ranchoSeleccionado = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    cargarFiltroRanchos();
+    cargarReporte();
+  });
+
+  async function cargarFiltroRanchos() {
+    try {
+      const res = await fetch('/api/ranchos');
+      const ranchos = await res.json();
+      const dd = document.getElementById('dropdown-filtro-ranchos');
+      ranchos.forEach(r => {
+        const li = document.createElement('li');
+        li.innerHTML = `<a class="dropdown-item" href="javascript:void(0)" onclick="filtrarRancho(${r.id}, '${r.nombre}')">${r.nombre}</a>`;
+        dd.appendChild(li);
+      });
+    } catch(e) {}
+  }
+
+  function filtrarRancho(id, nombre) {
+    ranchoSeleccionado = id;
+    document.getElementById('badge-filtro-activo').innerText = `Filtro: ${nombre}`;
+    cargarReporte();
+  }
+
+  async function cargarReporte() {
+    try {
+      const url = ranchoSeleccionado ? `/api/reportes/actividad?rancho_id=${ranchoSeleccionado}` : '/api/reportes/actividad';
+      const res = await fetch(url);
+      const data = await res.json();
+      const tbody = document.getElementById('tabla-reporte-body');
+      tbody.innerHTML = '';
+
+      document.getElementById('lbl-total-filas').innerText = `${data.length} animales analizados`;
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">No hay registros para este filtro.</td></tr>';
+        return;
+      }
+
+      data.forEach(r => {
+        const tr = document.createElement('tr');
+        const badgeClass = r.estado_vigencia === 'verde' ? 'bg-success' : (r.estado_vigencia === 'amarillo' ? 'bg-warning text-dark' : 'bg-danger');
+
+        tr.innerHTML = `
+          <td><code>${r.arete}</code></td>
+          <td><strong>${r.nombre}</strong></td>
+          <td>${r.raza} <span class="text-muted small">(${r.sexo})</span></td>
+          <td>${r.rancho} <br><small class="text-muted">${r.potrero}</small></td>
+          <td><small>${r.collar}</small></td>
+          <td>
+            <span class="badge ${r.bateria_pct < 30 ? 'bg-danger' : (r.bateria_pct < 70 ? 'bg-warning text-dark' : 'bg-success')}">
+              ${r.bateria_pct || 0}%
+            </span>
+          </td>
+          <td><strong>${r.total_reportes}</strong></td>
+          <td><strong class="text-primary">${r.distancia_km} km</strong></td>
+          <td>${r.vel_max_kmh} / ${r.vel_prom_kmh} <span class="small text-muted">km/h</span></td>
+          <td><small class="text-muted">${r.ultima_conexion}</small></td>
+          <td><span class="badge ${badgeClass}">${r.estado_vigencia}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+    } catch (e) {
+      console.error(e);
+    }
+  }
+</script>
+{% endblock %}

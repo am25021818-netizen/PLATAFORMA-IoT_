@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bovinos IoT - Monitoreo GPS Valle del Mezquital</title>
+
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+        <i class="bi bi-broadcast text-warning fs-4"></i>
+        <span>BOVINOS IoT</span>
+        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle ms-2 fs-6">Hidalgo - 915 MHz</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarMain">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link active" href="#seccion-mapa"><i class="bi bi-geo-alt"></i> Mapa en Vivo</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#seccion-hato"><i class="bi bi-card-checklist"></i> Hato Bovino</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#seccion-alertas">
+              <i class="bi bi-bell"></i> Alertas 
+              <span id="badge-total-alertas" class="badge rounded-pill bg-danger">0</span>
+            </a>
+          </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+              <i class="bi bi-cpu"></i> Hardware & Enlace
+            </a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="#seccion-dispositivos"><i class="bi bi-hdd-network"></i> Dispositivos LoRa / Gateways</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#seccion-conexion-real"><i class="bi bi-plug"></i> Conexión Nodos Físicos</a></li>
+              <li><a class="dropdown-item" href="#seccion-simulador"><i class="bi bi-joystick"></i> Simulador Telemetría</a></li>
+            </ul>
+          </li>
+        </ul>
+
+        <div class="d-flex align-items-center text-light gap-3">
+          <span class="small text-white-50"><i class="bi bi-clock"></i> Última sinc: <span id="lbl-ultima-act">Cargando...</span></span>
+          <button class="btn btn-outline-light btn-sm" onclick="recargarDatosCompletos()"><i class="bi bi-arrow-clockwise"></i> Refrescar</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container-fluid px-4 py-4">
+
+    <!-- KPI / Metrics Summary -->
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card p-3 d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-bold text-uppercase">Total Hato Bovino</span>
+            <div class="counter-value text-dark" id="kpi-total-animales">-</div>
+            <span class="text-success small"><i class="bi bi-check-circle-fill"></i> Registrados en sistema</span>
+          </div>
+          <div class="stat-icon text-success"><i class="bi bi-shield-check"></i></div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card p-3 d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-bold text-uppercase">En Línea (&lt;10m)</span>
+            <div class="counter-value text-success" id="kpi-vigencia-verde">-</div>
+            <span class="text-muted small">Reporte continuo</span>
+          </div>
+          <div class="stat-icon text-success"><i class="bi bi-wifi"></i></div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card p-3 d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-bold text-uppercase">Retraso / Sin Señal</span>
+            <div class="counter-value text-danger" id="kpi-vigencia-rojo">-</div>
+            <span class="text-muted small">Retrasados: <strong id="kpi-vigencia-amarillo">-</strong></span>
+          </div>
+          <div class="stat-icon text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card p-3 d-flex align-items-center justify-content-between">
+          <div>
+            <span class="text-muted small fw-bold text-uppercase">Nodos Hardware</span>
+            <div class="counter-value text-primary" id="kpi-total-dispositivos">-</div>
+            <span class="text-muted small"><span id="kpi-collares">-</span> Collares / <span id="kpi-gateways">-</span> GW</span>
+          </div>
+          <div class="stat-icon text-primary"><i class="bi bi-router"></i></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map & Animal Details Row -->
+    <div class="row g-4 mb-4" id="seccion-mapa">
+      <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0 fw-bold text-success">
+              <i class="bi bi-map"></i> Ubicación Georreferenciada - Valle del Mezquital
+            </h5>
+            <div class="btn-group btn-group-sm" role="group">
+              <button type="button" class="btn btn-outline-secondary" onclick="centrarMapaHuichapan()">Huichapan</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="centrarMapaTecozautla()">Tecozautla</button>
+              <button type="button" class="btn btn-outline-secondary" onclick="centrarMapaIxmiquilpan()">Ixmiquilpan</button>
+            </div>
+          </div>
+          <div class="card-body p-2">
+            <div id="map"></div>
+          </div>
+          <div class="card-footer bg-light py-2 small d-flex flex-wrap justify-content-between">
+            <div>
+              <span class="badge bg-success me-2">● En Línea (&lt;10m)</span>
+              <span class="badge bg-warning text-dark me-2">● Retrasado (10-30m)</span>
+              <span class="badge bg-danger me-2">● Alerta / Sin señal (&gt;30m)</span>
+              <span class="text-muted">| Círculos: Potreros / Geocercas</span>
+            </div>
+            <div class="text-muted">Banda ISM LoRa: 915.0 MHz (México)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Animal Card Panel -->
+      <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0 fw-bold text-success">
+              <i class="bi bi-info-circle"></i> Detalle del Bovino Seleccionado
+            </h5>
+          </div>
+          <div class="card-body" id="panel-detalle-bovino">
+            <div class="text-center text-muted py-5">
+              <i class="bi bi-cursor-fill fs-1 text-secondary opacity-50"></i>
+              <p class="mt-2">Haz clic en un marcador del mapa o en la lista inferior para ver telemetría completa y trazado de ruta.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cattle List Section -->
+    <section class="card shadow-sm border-0 mb-4" id="seccion-hato">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0 fw-bold text-success">
+          <i class="bi bi-card-checklist"></i> Inventario de Bovinos y Estado Operativo
+        </h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle custom-table">
+            <thead>
+              <tr>
+                <th>Arete / ID</th>
+                <th>Nombre</th>
+                <th>Raza / Sexo</th>
+                <th>Rancho & Potrero</th>
+                <th>Coordenadas GPS</th>
+                <th>Batería</th>
+                <th>Señal LoRa (RSSI)</th>
+                <th>Vigencia</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-bovinos-body">
+              <tr><td colspan="9" class="text-center py-3 text-muted">Cargando bovinos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Alerts Section -->
+    <section class="card shadow-sm border-0 mb-4" id="seccion-alertas">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0 fw-bold text-danger">
+          <i class="bi bi-bell-fill"></i> Panel de Alertas y Eventos
+        </h5>
+        <div>
+          <button class="btn btn-sm btn-outline-danger" onclick="cargarAlertas(true)">Solo Activas</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="cargarAlertas(false)">Historial Completo</button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Tipo Alerta</th>
+                <th>Bovino / Dispositivo</th>
+                <th>Descripción / Mensaje</th>
+                <th>Fecha y Hora</th>
+                <th>Estado</th>
+                <th>Gestión</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-alertas-body">
+              <tr><td colspan="7" class="text-center py-3 text-muted">Cargando alertas...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Devices Inventory & Physical Node Integration Section -->
+    <div class="row g-4 mb-4">
+      <!-- Dispositivos Hardware -->
+      <div class="col-12 col-xl-6" id="seccion-dispositivos">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0 fw-bold text-success">
+              <i class="bi bi-hdd-network"></i> Nodos Físicos Registrados (Heltec ESP32 LoRa v2)
+            </h5>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>MAC / ID</th>
+                    <th>Tipo</th>
+                    <th>Asignación</th>
+                    <th>Firmware</th>
+                    <th>Batería</th>
+                    <th>Última Conexión</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-dispositivos-body">
+                  <tr><td colspan="6" class="text-center py-3 text-muted">Cargando nodos...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real Hardware Connection / Config -->
+      <div class="col-12 col-xl-6" id="seccion-conexion-real">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0 fw-bold text-success">
+              <i class="bi bi-plug"></i> Enlace con Dispositivos Reales (Gateway / Serial / MQTT)
+            </h5>
+          </div>
+          <div class="card-body">
+            <p class="small text-muted">
+              Para enlazar los collares y receptores <strong>Heltec LoRa ESP32 v2</strong> reales en Valle del Mezquital, la plataforma admite ingesta continua mediante Broker MQTT o conexión USB-Serial local.
+            </p>
+            <div class="row g-2 mb-3">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Broker MQTT Broker / IP:</label>
+                <input type="text" class="form-control form-control-sm" id="conf-mqtt-broker" value="broker.hivemq.com" readonly>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold">Puerto:</label>
+                <input type="text" class="form-control form-control-sm" value="1883" readonly>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold">Frecuencia LoRa:</label>
+                <input type="text" class="form-control form-control-sm" value="915.0 MHz" readonly>
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold">Tópico de Suscripción Telemetría:</label>
+                <input type="text" class="form-control form-control-sm" value="rancho/mezquital/telemetria" readonly>
+              </div>
+            </div>
+            <div class="alert alert-secondary small mb-0 py-2">
+              <i class="bi bi-info-circle-fill text-primary"></i> <strong>Paso para conexión de hardware:</strong> Carga el código de la carpeta <code>firmware/nodo_collar_gps/</code> al collar del toro/vaca y <code>firmware/nodo_gateway_lora_mqtt/</code> al ESP32 receptor. Éste retransmitirá en formato JSON automáticamente hacia el backend.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulator Form -->
+    <div class="card shadow-sm border-0 mb-4" id="seccion-simulador">
+      <div class="card-header bg-white py-3">
+        <h5 class="card-title mb-0 fw-bold text-secondary">
+          <i class="bi bi-joystick"></i> Simulador Interactivo de Inyección de Coordenadas GPS
+        </h5>
+      </div>
+      <div class="card-body">
+        <form id="form-simulador" onsubmit="enviarTelemetriaSimulada(event)" class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label small fw-bold">Bovino a Simular:</label>
+            <select class="form-select form-select-sm" id="sim-animal-id" required>
+              <option value="1">El Barón (Huichapan)</option>
+              <option value="2">La Paloma (Huichapan)</option>
+              <option value="3">El Pinto (Huichapan)</option>
+              <option value="4">La Gitana (Tecozautla)</option>
+              <option value="5">El Huasteco (Tecozautla)</option>
+              <option value="6">La Canela (Ixmiquilpan)</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-bold">Latitud:</label>
+            <input type="number" step="0.00001" class="form-control form-control-sm" id="sim-lat" value="20.37890" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-bold">Longitud:</label>
+            <input type="number" step="0.00001" class="form-control form-control-sm" id="sim-lon" value="-99.65150" required>
+          </div>
+          <div class="col-md-1">
+            <label class="form-label small fw-bold">Batería %:</label>
+            <input type="number" class="form-control form-control-sm" id="sim-bat" value="85" min="1" max="100">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-bold">RSSI LoRa (dBm):</label>
+            <input type="number" class="form-control form-control-sm" id="sim-rssi" value="-82">
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-success btn-sm w-100">
+              <i class="bi bi-send-fill"></i> Inyectar Lectura
+            </button>
+          </div>
+        </form>
+        <div id="sim-feedback" class="mt-2 small"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container-fluid px-4 text-center">
+      <p class="mb-1 fw-bold">Plataforma IoT de Monitoreo Bovino - Valle del Mezquital, Hidalgo</p>
+      <p class="small text-white-50 mb-0">Tecnologías: Heltec LoRa ESP32 v2, GPS NEO-6M, MQTT Mosquitto, Flask, SQLite, Bootstrap 5</p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

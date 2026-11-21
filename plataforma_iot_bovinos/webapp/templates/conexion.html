@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Enlace Hardware Real - Bovinos IoT{% endblock %}
+{% block page_title %}Enlace e Integración con Nodos Físicos Heltec ESP32{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12 col-lg-7">
+    <div class="card-custom p-4">
+      <h6 class="fw-bold mb-3 text-secondary">
+        <i class="bi bi-broadcast-pin text-primary"></i> Configuración de Broker MQTT para Receptores
+      </h6>
+      <p class="small text-muted">
+        El <strong>Nodo 2 (Gateway Retransmisor Heltec LoRa ESP32 v2)</strong> recibe los paquetes emitidos por los collares de los toros/vacas en 915 MHz y publica las tramas de telemetría hacia el broker MQTT local o en nube.
+      </p>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <label class="form-label small fw-bold">Broker MQTT (Host / IP):</label>
+          <input type="text" class="form-control form-control-sm" value="broker.hivemq.com" readonly>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">Puerto TCP:</label>
+          <input type="text" class="form-control form-control-sm" value="1883" readonly>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-bold">QoS:</label>
+          <input type="text" class="form-control form-control-sm" value="1 (Al menos una vez)" readonly>
+        </div>
+        <div class="col-12">
+          <label class="form-label small fw-bold">Tópico Telemetría Bovinos:</label>
+          <input type="text" class="form-control form-control-sm" value="rancho/mezquital/telemetria" readonly>
+        </div>
+      </div>
+
+      <div class="alert alert-secondary small mb-0 py-3">
+        <div class="fw-bold mb-1"><i class="bi bi-terminal-fill text-primary"></i> Formato de Trama JSON esperada:</div>
+        <pre class="bg-dark text-light p-2 rounded mb-0" style="font-size: 0.8rem;">
+{
+  "animal_id": 1,
+  "lat": 20.37859,
+  "lon": -99.65118,
+  "altitud": 1814.0,
+  "velocidad": 0.8,
+  "bateria": 87,
+  "rssi": -83,
+  "dispositivo_id": 1
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card-custom p-4 h-100">
+      <h6 class="fw-bold mb-3 text-secondary">
+        <i class="bi bi-file-earmark-code text-primary"></i> Firmware Físico en Repositorio
+      </h6>
+      <p class="small text-muted">
+        Los códigos fuente están organizados en la carpeta <code>firmware/</code>:
+      </p>
+
+      <div class="list-group small mb-3">
+        <div class="list-group-item">
+          <strong>Collar Bovino (Nodo 1 Transmisor):</strong>
+          <div class="text-muted"><code>firmware/nodo_collar_gps/nodo_collar_gps.ino</code></div>
+          <span class="badge bg-secondary">Heltec ESP32 + NEO-6M</span>
+        </div>
+        <div class="list-group-item">
+          <strong>Gateway Receptor (Nodo 2 Bridge):</strong>
+          <div class="text-muted"><code>firmware/nodo_gateway_lora_mqtt/nodo_gateway_lora_mqtt.ino</code></div>
+          <span class="badge bg-secondary">LoRa 915 MHz &rarr; MQTT WiFi</span>
+        </div>
+      </div>
+
+      <div class="border rounded p-3 bg-light small">
+        <div class="fw-bold mb-1 text-primary"><i class="bi bi-shield-check"></i> Parámetros de RF México (IFT):</div>
+        <div>&bull; Frecuencia central: <strong>915.0 MHz</strong></div>
+        <div>&bull; Spreading Factor: <strong>SF7</strong> | Ancho banda: <strong>125 kHz</strong></div>
+        <div>&bull; Sync Word privada: <strong>0x34</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
