@@ -7,5 +7,8 @@ echo   Iniciando Plataforma Web IoT Bovinos
 echo   Valle del Mezquital, Hidalgo
 echo   Servidor Web en: http://localhost:5000
 echo ========================================================
+echo Instalando dependencias de la webapp...
+python -m pip install -q -r requirements.txt
+echo.
 python app.py
 pause

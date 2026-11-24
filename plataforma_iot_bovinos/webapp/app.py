@@ -7,6 +7,7 @@ import sys
 import os
 import csv
 import io
+from datetime import datetime
 from functools import wraps
 
 # Asegurar que database/ esté en el path
@@ -20,7 +21,10 @@ import db_manager as db
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
-app.secret_key = "mezquital_bovinos_iot_secret_key_2026_rbac"
+if hasattr(app, "json"):
+    app.json.sort_keys = False  # Flask 2.3+
+# En producción definir FLASK_SECRET_KEY en el entorno; el valor por defecto es solo para desarrollo.
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "mezquital_bovinos_iot_secret_key_2026_rbac")
 
 # Inicializar DB al arrancar
 db.init_db()
@@ -316,4 +320,4 @@ if __name__ == "__main__":
     print("  BOVINOS IoT RBAC + ANALYTICS — Valle del Mezquital")
     print("  Servidor en: http://localhost:5000")
     print("=" * 60)
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)
