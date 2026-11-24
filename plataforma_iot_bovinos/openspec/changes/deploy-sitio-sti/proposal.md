@@ -15,8 +15,8 @@ Aportar al repositorio una configuración de producción reproducible que permit
 
 ## 3. Alcance
 
-- Nuevos archivos: `docker-compose.prod.yml`, `webapp/Dockerfile.prod`, `webapp/.dockerignore`, `plataforma/.dockerignore`, `plataforma/mosquitto.conf`, `docs/despliegue_sti.md`.
-- Actualización de `README.md` con el enlace a la guía.
+- Nuevos archivos: `docker-compose.prod.yml`, `webapp/Dockerfile.prod`, `webapp/.dockerignore`, `plataforma/.dockerignore`, `plataforma/mosquitto.conf`, `docs/despliegue_sti.md`, `docs/manual_despliegue_para_no_tecnico.md`, `docs/Manual_Despliegue_STI_ITESHU.pdf` y `generar_pdf_manual_despliegue.py`.
+- Actualización de `README.md` con los enlaces a las guías y al PDF.
 - **No se modifica** el contrato MQTT ni la lógica funcional de la plataforma.
 
 ## 4. Restricciones

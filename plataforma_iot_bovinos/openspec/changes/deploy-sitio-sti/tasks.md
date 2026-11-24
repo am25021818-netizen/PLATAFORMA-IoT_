@@ -7,5 +7,6 @@
 - [x] Crear `plataforma/mosquitto.conf` de demostración.
 - [x] Redactar `docs/despliegue_sti.md` con pasos, verificación y reversa.
 - [x] Redactar `docs/manual_despliegue_para_no_tecnico.md` con analogías, checklist y solución de problemas.
-- [x] Vincular ambas guías desde `README.md`.
+- [x] Generar `docs/Manual_Despliegue_STI_ITESHU.pdf` y dejar copia en el escritorio principal.
+- [x] Vincular ambas guías y el PDF desde `README.md`.
 - [x] Validar YAML de compose y publicar el cambio en GitHub.

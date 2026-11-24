@@ -79,6 +79,7 @@ plataforma_iot_bovinos/
     ├── despliegue_subdominio.md       # Publicación HTTPS con subdominio (Cloudflare / VPS)
     ├── despliegue_sti.md              # Reemplazo de ThingsBoard en sti.itsoeh.edu.mx
     ├── manual_despliegue_para_no_tecnico.md  # Manual explicado sin tecnicismos
+    ├── Manual_Despliegue_STI_ITESHU.pdf      # Versión PDF lista para imprimir/entregar
     └── guion_presentacion_final.md    # Guion para evaluación en clase
 ```
 
@@ -149,6 +150,7 @@ Cambia estas credenciales antes de cualquier despliegue público.
 Para desplegar en el servidor ITESHU (`sti.itsoeh.edu.mx`) y sustituir ThingsBoard:
 - Guía técnica: [`docs/despliegue_sti.md`](docs/despliegue_sti.md)
 - Manual explicado para personal no técnico: [`docs/manual_despliegue_para_no_tecnico.md`](docs/manual_despliegue_para_no_tecnico.md)
+- Manual en PDF (para imprimir o entregar): [`docs/Manual_Despliegue_STI_ITESHU.pdf`](docs/Manual_Despliegue_STI_ITESHU.pdf)
 
 ---
 
