@@ -78,6 +78,7 @@ plataforma_iot_bovinos/
 └── docs/
     ├── despliegue_subdominio.md       # Publicación HTTPS con subdominio (Cloudflare / VPS)
     ├── despliegue_sti.md              # Reemplazo de ThingsBoard en sti.itsoeh.edu.mx
+    ├── manual_despliegue_para_no_tecnico.md  # Manual explicado sin tecnicismos
     └── guion_presentacion_final.md    # Guion para evaluación en clase
 ```
 
@@ -145,7 +146,9 @@ Abre http://localhost:5000. Para producción define `FLASK_SECRET_KEY` en el ent
 
 Cambia estas credenciales antes de cualquier despliegue público.
 
-Para desplegar en el servidor ITESHU (`sti.itsoeh.edu.mx`) y sustituir ThingsBoard, sigue la guía completa: [`docs/despliegue_sti.md`](docs/despliegue_sti.md).
+Para desplegar en el servidor ITESHU (`sti.itsoeh.edu.mx`) y sustituir ThingsBoard:
+- Guía técnica: [`docs/despliegue_sti.md`](docs/despliegue_sti.md)
+- Manual explicado para personal no técnico: [`docs/manual_despliegue_para_no_tecnico.md`](docs/manual_despliegue_para_no_tecnico.md)
 
 ---
 

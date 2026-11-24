@@ -6,5 +6,6 @@
 - [x] Crear `.dockerignore` para webapp y plataforma.
 - [x] Crear `plataforma/mosquitto.conf` de demostración.
 - [x] Redactar `docs/despliegue_sti.md` con pasos, verificación y reversa.
-- [x] Vincular la guía desde `README.md`.
+- [x] Redactar `docs/manual_despliegue_para_no_tecnico.md` con analogías, checklist y solución de problemas.
+- [x] Vincular ambas guías desde `README.md`.
 - [x] Validar YAML de compose y publicar el cambio en GitHub.
