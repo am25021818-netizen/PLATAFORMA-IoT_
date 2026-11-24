@@ -9,110 +9,209 @@ Sistema integral de geolocalización y supervisión remota para ganado bovino en
 
 ---
 
-## 📌 1. Arquitectura de Dos Tramos
+## 1. Arquitectura de dos tramos
 
 ```
 [ Bovino: Collar LoRa + GPS ]
-             │ (Radio LoRa 915 MHz - Canal Privado)
-             ▼
-[ Gateway: Heltec ESP32 Base ]
-             │ (Wi-Fi / Red TCP-IP)
-             ▼
+              │ (Radio LoRa 915 MHz, SF7, 125 kHz, 20 dBm - canal privado)
+              ▼
+[ Gateway: Heltec ESP32 LoRa v2 ]  ← retiene la última coordenada válida
+              │ (Wi-Fi / TCP-IP, LWT en estado)
+              ▼
 [ Broker MQTT (Mosquitto) ]
-             │ (Tópico: bovinos/+/telemetria)
-             ▼
-[ Contenedor Docker: Python Ingesta + SQLite + Streamlit ]
-             │ (Puerto 8501 / HTTPS)
-             ▼
-[ Subdominio Web: bovinos.tudominio.com ]
+              │ (Telemetría: bovinos/{device_id}/telemetria)
+              ▼
+[ Ingesta Python (paho-mqtt v2) + SQLite ]
+              ├──► Dashboard Streamlit .......... http://localhost:8501
+              └──► Webapp Flask + API RBAC ...... http://localhost:5000
 ```
+
+**Regla de oro (fail-safe):** si el GPS pierde el fix, el collar transmite `lat=0, lon=0, fix_valido=0`. El gateway reenvía la última coordenada válida que recibió, la plataforma **no la reemplaza** por `(0,0)` y la muestra en **amarillo / desactualizada**, generando la alerta `sin_fix`. Ver el detalle en `openspec/changes/fix-failsafe-gps-y-resiliencia/design.md`.
 
 ---
 
-## 📂 2. Estructura del Repositorio (Monorepo)
+## 2. Estructura del repositorio
 
-```
+```text
 plataforma_iot_bovinos/
-├── AGENTS.md                          # Reglas globales mecatrónicas y fail-safe
-├── .gitignore                         # Exclusión de base de datos y credenciales
-├── README.md                          # Documentación general del repositorio
-├── openspec/                          # Especificaciones y planos formales
-│   ├── specs/contrato-mqtt/spec.md    # Contrato formal MQTT (Fuente de verdad)
-│   └── changes/mvp-monitoreo-bovinos/ # Propuesta técnica, diseño y tareas
-│       ├── proposal.md
-│       ├── design.md
-│       ├── tasks.md
-│       └── specs/telemetria.md
-├── firmware/                          # Código para microcontroladores
-│   ├── AGENTS.md                      # Reglas de firmware: millis() y LoRa 915MHz
-│   ├── nodo_collar_gps/               # Nodo emisor collar (Heltec LoRa + GPS)
+├── AGENTS.md                          # Reglas globales: MQTT, fail-safe, millis(), git
+├── README.md                          # Esta guía
+├── .gitignore                         # Excluye *.db, .env, __pycache__, etc.
+├── openspec/
+│   ├── specs/contrato-mqtt/spec.md    # Contrato MQTT (fuente de verdad)
+│   └── changes/
+│       ├── mvp-monitoreo-bovinos/     # Propuesta original del MVP
+│       └── fix-failsafe-gps-y-resiliencia/  # Propuesta/diseño/tasks del último arreglo
+├── firmware/
+│   ├── AGENTS.md                      # Reglas de firmware (915 MHz, 20 dBm, sin delay)
+│   ├── nodo_collar_gps/               # Emisor LoRa + GPS (TinyGPS++)
 │   │   ├── config.h
 │   │   └── nodo_collar_gps.ino
-│   └── nodo_gateway_lora_mqtt/        # Nodo retransmisor base (LoRa a MQTT)
+│   └── nodo_gateway_lora_mqtt/        # Puente LoRa → Wi-Fi → MQTT con LWT
 │       ├── config.h
 │       └── nodo_gateway_lora_mqtt.ino
-├── plataforma/                        # Aplicación web y backend en Docker
-│   ├── AGENTS.md                      # Reglas Python y Streamlit
-│   ├── requirements.txt               # Dependencias Python
-│   ├── Dockerfile                     # Receta de construcción del contenedor
-│   ├── docker-compose.yml             # Orquestación con broker Mosquitto y volumen
-│   ├── .env.example                   # Variables de entorno de configuración
+├── plataforma/                        # Backend + dashboard (Stack oficial ITESHU)
+│   ├── AGENTS.md
+│   ├── requirements.txt               # paho-mqtt, streamlit, pandas, folium, pytest...
+│   ├── Dockerfile
+│   ├── docker-compose.yml             # Mosquitto + contenedor de la plataforma
+│   ├── .env.example                   # Plantilla de variables de entorno
 │   └── src/
-│       ├── config.py                  # Parámetros y umbrales de vigencia
-│       ├── database.py                # Base de datos SQLite (DDL, sembrado y queries)
-│       ├── ingesta_mqtt.py            # Suscriptor continuo 24/7 a MQTT
-│       └── dashboard.py               # Aplicación web reactiva Streamlit (Mapas Folium)
-├── tests/                             # Pruebas y simuladores
-│   ├── simulador_esp32.py             # Emulador de nodos Heltec sin hardware
-│   ├── test_runner.py                 # Ejecutor de pruebas unitarias
-│   └── test_database.py               # Pruebas con pytest
-└── docs/                              # Manuales de apoyo
-    ├── despliegue_subdominio.md       # Guía de publicación con subdominio web
+│       ├── config.py                  # Broker, rutas DB y umbrales 600/1800 s
+│       ├── database.py                # DDL, sembrado, consultas y fail-safe
+│       ├── ingesta_mqtt.py            # Suscriptor continuo con reconexión
+│       └── dashboard.py               # Streamlit + Folium (OSM / ESRI)
+├── tests/
+│   ├── test_runner.py                 # Pruebas unittest (no requiere pytest)
+│   ├── test_database.py               # Las mismas pruebas en formato pytest
+│   └── simulador_esp32.py             # 3 bovinos de Huichapan vía MQTT
+├── webapp/                            # Interfaz Flask con RBAC y analítica
+│   ├── app.py                         # Vistas, API REST, descargas CSV/JSON
+│   ├── requirements.txt               # Flask + Werkzeug
+│   ├── iniciar_webapp.bat
+│   ├── database/
+│   │   ├── db_manager.py              # Acceso SQL parametrizado y RBAC
+│   │   ├── schema.sql
+│   │   └── seed.sql                   # Usuarios y datos de demostración
+│   ├── templates/                     # Jinja2 (dashboard, mapa, alertas, reportes...)
+│   └── static/                        # CSS, JS e imágenes
+└── docs/
+    ├── despliegue_subdominio.md       # Publicación HTTPS con subdominio
     └── guion_presentacion_final.md    # Guion para evaluación en clase
 ```
 
----
-
-## 🚀 3. Instrucciones de Despliegue con Docker
-
-1. Clonar el repositorio y entrar a la carpeta de la plataforma:
-   ```bash
-   git clone https://github.com/tu-usuario/plataforma_iot_bovinos.git
-   cd plataforma_iot_bovinos/plataforma
-   ```
-
-2. Levantar el servicio en segundo plano con Docker Compose:
-   ```bash
-   docker compose up -d --build
-   ```
-
-3. Acceder al dashboard en tu navegador:
-   ```
-   http://localhost:8501
-   ```
-
-4. Para publicar bajo subdominio web con HTTPS automático gratuito:
-   Consulta la guía completa en [docs/despliegue_subdominio.md](docs/despliegue_subdominio.md).
+> Las bases de datos `*.db` **no se versionan**. Se crean automáticamente la primera vez que arranca cada aplicación.
 
 ---
 
-## 🧪 4. Pruebas Unitarias y Simulación de Hardware
+## 3. Contrato MQTT (fuente de verdad)
 
-Para ejecutar las pruebas unitarias:
+| Tópico | Dirección | Payload / propósito |
+|---|---|---|
+| `bovinos/{device_id}/telemetria` | Gateway → Web | `device_id`, `animal_id`, `lat`, `lon`, `altitud_m`, `velocidad_kmh`, `bateria_pct`, `rssi_dbm`, `snr_db`, `satelites`, `fix_valido`, `timestamp` |
+| `bovinos/{device_id}/comandos` | Web → Gateway/Collar | Comandos de configuración (reservado para futuras iteraciones) |
+| `bovinos/{device_id}/estado` | Gateway → Web | Last Will and Testament: `{"estado":"online"}` / `{"estado":"offline"}` retenido |
+
+Configuración LoRa: **915.0 MHz**, **SF7**, **125 kHz**, **20 dBm (PA_BOOST)**, *sync word* `0x34`.
+
+---
+
+## 4. Puesta en marcha
+
+### 4.1 Opción A: Docker (recomendada)
+
 ```bash
-python tests/test_runner.py
+cd plataforma
+docker compose up -d --build
 ```
 
-Para activar el simulador de hardware (inyección periódica de coordenadas de 3 bovinos en Huichapan por MQTT):
+- Dashboard: http://localhost:8501
+- Broker MQTT: `localhost:1883` (WebSocket en `9001`)
+
+### 4.2 Opción B: sin Docker (Windows / local)
+
+```bat
+iniciar_plataforma_local.bat
+```
+
+Instala `plataforma/requirements.txt` y levanta Streamlit en el puerto 8501. En otra terminal, si necesitas el flujo MQTT:
+
+```bat
+python -m pip install -r plataforma\requirements.txt
+python plataforma\src\ingesta_mqtt.py
+python tests\simulador_esp32.py
+```
+
+> Sin broker MQTT el simulador avisa y termina; la ingesta reintenta cada 5 s hasta que Mosquitto esté disponible. Para una prueba aislada puedes usar `DB_PATH` apuntando a un archivo temporal y no tocar la base real.
+
+### 4.3 Webapp Flask (interfaz RBAC)
+
+```bat
+cd webapp
+iniciar_webapp.bat
+```
+
+Abre http://localhost:5000. Para producción define `FLASK_SECRET_KEY` en el entorno (el valor por defecto es solo de demostración).
+
+**Usuarios de demostración** (definidos en `webapp/database/seed.sql`):
+
+| Correo | Contraseña | Rol |
+|---|---|---|
+| `admin@mezquital.mx` | `admin123` | `administrador` |
+| `dueno@mezquital.mx` | `dueno123` | `administrador` de rancho |
+| `operador@mezquital.mx` | `operador123` | `operador` |
+| `tecnico@mezquital.mx` | `tecnico123` | `tecnico_mantenimiento` |
+
+Cambia estas credenciales antes de cualquier despliegue público.
+
+---
+
+## 5. Pruebas
+
 ```bash
-python tests/simulador_esp32.py
+python tests/test_runner.py            # unittest, 4 pruebas, sin pytest
+python tests/test_database.py          # requiere pytest (en requirements.txt)
+python tests/simulador_esp32.py        # inyecta 3 bovinos cada 10 s por MQTT
+```
+
+Cobertura actual:
+
+- Creación del esquema y sembrado del Valle del Mezquital.
+- Persistencia y recuperación de lecturas GPS.
+- Generación automática de alerta por batería < 20 %.
+- Resumen del dashboard (totales y semáforo de vigencia).
+- Simulador: 3 tramas válidas contra el contrato MQTT.
+- Regresión manual ejecutada el 24/11/2026: ingesta con mensajes simulados, endpoints Flask (RBAC 200/403 y descargas CSV/JSON 200) y health check de Streamlit.
+
+Para no ensuciar tus datos reales fuerza una base temporal:
+
+```powershell
+$env:DB_PATH = "$env:TEMP\datos_iot_prueba.db"
+python tests\test_runner.py -v
 ```
 
 ---
 
-## 👨‍💻 Autor y Asesoría
+## 6. Reglas de operación y semáforo
+
+| Estado | Tiempo desde el último reporte | Color |
+|---|---|---|
+| Actualizada | < 10 min (600 s) | Verde |
+| Retrasada | 10–30 min (600–1800 s), **o sin fix GPS** | Amarillo |
+| Sin comunicación | > 30 min (1800 s) | Rojo |
+
+Reglas adicionales:
+
+- `loop()` del ESP32 nunca usa `delay()`; todo se basa en `millis()`.
+- El gateway reconecta MQTT con compuerta de 3 s sin bloquear la recepción LoRa.
+- Todo el SQL está parametrizado en `database.py` / `db_manager.py`.
+- No se versionan bases de datos, `.env`, ni `__pycache__`.
+
+---
+
+## 7. Flujo de cambio (OpenSpec)
+
+1. Escribir la propuesta en `openspec/changes/<nombre>/` (`proposal.md`, `design.md`, `tasks.md`, `specs/.../spec.md`).
+2. Implementar el código marcando las tareas en `tasks.md`.
+3. Ejecutar pruebas con bases temporales.
+4. Hacer commits atómicos en español con Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`).
+
+El contrato MQTT vivo está en `openspec/specs/contrato-mqtt/spec.md`; los deltas de cada cambio se documentan dentro de su carpeta en `openspec/changes/`.
+
+---
+
+## 8. Limitaciones conocidas
+
+- El broker de demostración no usa autenticación; configura Mosquitto con usuario/contraseña antes de exponerlo a Internet.
+- El collar aún no entra en `deep sleep`; el ahorro de energía actual es por transmisión periódica (`INTERVALO_ENVIO_MS = 30000` en laboratorio). La implementación física de deep sleep queda pendiente de pruebas con hardware.
+- El mapa Folium usa el color `orange` para el amarillo porque la librería no expone un icono `yellow`; el *badge* HTML sí usa amarillo (`#e9c46a`).
+
+---
+
+## 9. Créditos
+
 - **Estudiante:** Ing. Iván Rodríguez Hernández
-- **Docente Titular:** DTI. Carlos Arturo Espinoza Galicia
+- **Docente titular:** DTI. Carlos Arturo Espinoza Galicia
 - **Institución:** Instituto Tecnológico Superior de Huichapan (ITESHU)
 - **Posgrado:** Maestría en Ingeniería Mecatrónica (MIM)
-- **Periodo:** Semestre Agosto - Diciembre 2026
+- **Periodo:** Semestre Agosto – Diciembre 2026
