@@ -152,6 +152,8 @@ Para desplegar en el servidor ITESHU (`sti.itsoeh.edu.mx`) y sustituir ThingsBoa
 - Manual explicado para personal no técnico: [`docs/manual_despliegue_para_no_tecnico.md`](docs/manual_despliegue_para_no_tecnico.md)
 - Manual en PDF (para imprimir o entregar): [`docs/Manual_Despliegue_STI_ITESHU.pdf`](docs/Manual_Despliegue_STI_ITESHU.pdf)
 
+El PDF se regenera desde la raíz del repo con `python generar_pdf_manual_despliegue.py`; el script también deja una copia en el escritorio principal.
+
 ---
 
 ## 5. Pruebas
