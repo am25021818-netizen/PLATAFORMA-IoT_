@@ -23,7 +23,13 @@
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-unsigned long ultimoCheckRed = 0;
+// Fail-safe de posición: conservar la última coordenada válida recibida por LoRa.
+char ultimaLatValida[16] = "";
+char ultimaLonValida[16] = "";
+bool hayFixValido = false;
+
+// Compuerta no bloqueante para reintentos MQTT (prohibido delay() en loop()).
+unsigned long ultimoIntentoMQTT = 0;
 
 void setupWiFi() {
   delay(10);
@@ -50,26 +56,29 @@ void setupWiFi() {
 }
 
 void reconectarMQTT() {
-  if (WiFi.status() != WL_CONNECTED) return;
+  if (WiFi.status() != WL_CONNECTED || mqttClient.connected()) return;
 
-  while (!mqttClient.connected()) {
-    Serial.print("[MQTT] Conectando al broker en ");
-    Serial.print(MQTT_BROKER_HOST);
-    Serial.print("...");
+  // Un solo intento por ciclo como máximo, espaciado por millis().
+  // Así la recepción LoRa no se bloquea mientras el broker esté caído.
+  unsigned long ahora = millis();
+  if (ahora - ultimoIntentoMQTT < 3000) return;
+  ultimoIntentoMQTT = ahora;
 
-    String clientId = "Gateway-Heltec-";
-    clientId += String(random(0xffff), HEX);
+  Serial.print("[MQTT] Conectando al broker en ");
+  Serial.print(MQTT_BROKER_HOST);
+  Serial.print("...");
 
-    // Conexión con Last Will and Testament
-    if (mqttClient.connect(clientId.c_str(), MQTT_USER, MQTT_PASS, MQTT_TOPIC_LWT, 1, true, "{\"estado\":\"offline\"}")) {
-      Serial.println(" ¡Conectado!");
-      mqttClient.publish(MQTT_TOPIC_LWT, "{\"estado\":\"online\"}", true);
-    } else {
-      Serial.print(" Falló, rc=");
-      Serial.print(mqttClient.state());
-      Serial.println(" reintentando en 3 segundos...");
-      delay(3000);
-    }
+  String clientId = "Gateway-Heltec-";
+  clientId += String(random(0xffff), HEX);
+
+  // Conexión con Last Will and Testament
+  if (mqttClient.connect(clientId.c_str(), MQTT_USER, MQTT_PASS, MQTT_TOPIC_LWT, 1, true, "{\"estado\":\"offline\"}")) {
+    Serial.println(" ¡Conectado!");
+    mqttClient.publish(MQTT_TOPIC_LWT, "{\"estado\":\"online\"}", true);
+  } else {
+    Serial.print(" Falló, rc=");
+    Serial.print(mqttClient.state());
+    Serial.println(". Reintentaré en 3 s sin bloquear el loop.");
   }
 }
 
@@ -105,19 +114,45 @@ void procesarPaqueteLoRa(int packetSize) {
   char* seqStr = strtok(NULL, ",");
 
   if (devId && animId && latStr && lonStr) {
+    bool fixValido = (fixStr && strcmp(fixStr, "1") == 0);
+    double latNum = atof(latStr);
+    double lonNum = atof(lonStr);
+    bool coordsValidas = (latNum >= -90.0 && latNum <= 90.0 &&
+                          lonNum >= -180.0 && lonNum <= 180.0 &&
+                          (latNum != 0.0 || lonNum != 0.0));
+
+    const char* latPublicar = latStr;
+    const char* lonPublicar = lonStr;
+
+    if (fixValido && coordsValidas) {
+      // Actualizar la memoria de posición válida del collar.
+      strncpy(ultimaLatValida, latStr, sizeof(ultimaLatValida) - 1);
+      ultimaLatValida[sizeof(ultimaLatValida) - 1] = '\0';
+      strncpy(ultimaLonValida, lonStr, sizeof(ultimaLonValida) - 1);
+      ultimaLonValida[sizeof(ultimaLonValida) - 1] = '\0';
+      hayFixValido = true;
+    } else {
+      // Sin fix: reenviar la última coordenada válida, nunca un (0,0) falso.
+      fixValido = false;
+      if (hayFixValido) {
+        latPublicar = ultimaLatValida;
+        lonPublicar = ultimaLonValida;
+      }
+    }
+
     // Generar JSON conforme al contrato openspec/specs/contrato-mqtt/spec.md
     char jsonPayload[300];
     snprintf(jsonPayload, sizeof(jsonPayload),
       "{\"device_id\":\"%s\",\"animal_id\":\"%s\",\"lat\":%s,\"lon\":%s,\"altitud_m\":%s,"
       "\"velocidad_kmh\":%s,\"bateria_pct\":%s,\"rssi_dbm\":%d,\"snr_db\":%.1f,"
       "\"satelites\":%s,\"fix_valido\":%s}",
-      devId, animId, latStr, lonStr,
+      devId, animId, latPublicar, lonPublicar,
       altStr ? altStr : "0.0",
       velStr ? velStr : "0.0",
       batStr ? batStr : "100",
       rssi, snr,
       satStr ? satStr : "0",
-      (fixStr && strcmp(fixStr, "1") == 0) ? "true" : "false"
+      fixValido ? "true" : "false"
     );
 
     // Publicar por MQTT
@@ -148,6 +183,7 @@ void setup() {
     while (1);
   }
 
+  LoRa.setTxPower(LORA_TX_POWER);   // 20 dBm (PA_BOOST) según firmware/AGENTS.md
   LoRa.setSpreadingFactor(LORA_SPREADING);
   LoRa.setSignalBandwidth(LORA_BW);
   LoRa.setSyncWord(0x34);

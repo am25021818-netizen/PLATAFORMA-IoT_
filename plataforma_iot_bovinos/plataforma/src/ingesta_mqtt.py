@@ -40,12 +40,21 @@ def on_message(client, userdata, msg):
             logger.warning(f"Trama rechazada por falta de campos obligatorios: {payload_str}")
             return
 
-        # Validación de rango de coordenadas geográficas
+        # Validación de rango y estado del sensor (plataforma/AGENTS.md):
+        # la telemetría inválida NO se descarta: se persiste con fix_valido=False
+        # y database.guardar_lectura() se encarga de conservar la última posición válida.
         lat = float(data.get("lat", 0.0))
         lon = float(data.get("lon", 0.0))
-        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
-            logger.warning(f"Coordenadas fuera de rango físico: lat={lat}, lon={lon}")
-            return
+        fuera_de_rango = not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0)
+        if fuera_de_rango:
+            logger.warning(f"Coordenadas fuera de rango físico: lat={lat}, lon={lon}. Se almacenarán con alerta.")
+
+        fix_valido = data.get("fix_valido", True)
+        if isinstance(fix_valido, str):
+            fix_valido = fix_valido.strip().lower() in ("1", "true", "sí", "si", "yes")
+        if fuera_de_rango or not bool(fix_valido):
+            data["fix_valido"] = False
+            logger.warning("Trama sin fix válido: se conservará la última coordenada válida y se alertará al operador.")
 
         # Guardar en SQLite
         guardar_lectura(data)

@@ -299,13 +299,17 @@ def obtener_potreros(rancho_id: str = None):
         return [dict(r) for r in cursor.fetchall()]
 
 def guardar_lectura(datos: dict, fuente: str = "lora_mqtt"):
-    """Inserta una lectura GPS y actualiza automáticamente el dispositivo y el hato."""
+    """Inserta una lectura GPS aplicando el fail-safe y actualiza dispositivo/alertas.
+
+    Si el GPS no tiene fix o las coordenadas están fuera de rango, la telemetría
+    se conserva pero la posición vigente sigue siendo la última válida conocida.
+    """
     with get_connection() as conn:
         cursor = conn.cursor()
-        
+
         device_id = datos.get("device_id")
         animal_id = datos.get("animal_id")
-        
+
         # Si no viene animal_id, buscarlo por el dispositivo
         if not animal_id and device_id:
             cursor.execute("SELECT id FROM animales WHERE device_id = ?", (device_id,))
@@ -316,11 +320,42 @@ def guardar_lectura(datos: dict, fuente: str = "lora_mqtt"):
                 animal_id = "BOV-001" # Default fallback si es collar no asignado
 
         fecha_captura = datos.get("timestamp", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        lat = float(datos.get("lat", 0.0))
-        lon = float(datos.get("lon", 0.0))
+        lat_reportada = float(datos.get("lat", 0.0))
+        lon_reportada = float(datos.get("lon", 0.0))
         bateria = int(datos.get("bateria_pct", 100))
         rssi = datos.get("rssi_dbm", -70)
         snr = datos.get("snr_db", 8.0)
+
+        sin_fix = not bool(datos.get("fix_valido", True))
+        fuera_de_rango = not (-90.0 <= lat_reportada <= 90.0 and -180.0 <= lon_reportada <= 180.0)
+        fix_valido = 0 if (sin_fix or fuera_de_rango) else 1
+
+        lat, lon = lat_reportada, lon_reportada
+        tipo_alerta_sensor = None
+        if fuera_de_rango:
+            tipo_alerta_sensor = "coordenadas_invalidas"
+            descripcion_sensor = (
+                f"Coordenadas fuera de rango recibidas ({lat_reportada}, {lon_reportada}). "
+                "Se conserva la última coordenada válida."
+            )
+        elif sin_fix:
+            tipo_alerta_sensor = "sin_fix"
+            descripcion_sensor = "GPS sin fix satelital. Se conserva la última coordenada válida; posición desactualizada."
+
+        if fix_valido == 0:
+            # Fail-safe: no sobreescribir con (0,0) ni con valores imposibles.
+            cursor.execute("""
+            SELECT lat, lon FROM lecturas_gps
+            WHERE fix_valido = 1 AND (lat <> 0 OR lon <> 0)
+              AND (? IS NULL OR device_id = ?)
+              AND (? IS NULL OR animal_id = ?)
+            ORDER BY id DESC LIMIT 1
+            """, (device_id, device_id, animal_id, animal_id))
+            fila_valida = cursor.fetchone()
+            if fila_valida:
+                lat, lon = float(fila_valida["lat"]), float(fila_valida["lon"])
+            else:
+                lat, lon = 0.0, 0.0
 
         # Inserción en histórico
         cursor.execute("""
@@ -339,7 +374,7 @@ def guardar_lectura(datos: dict, fuente: str = "lora_mqtt"):
             rssi,
             snr,
             int(datos.get("satelites", 8)),
-            1 if datos.get("fix_valido", True) else 0,
+            fix_valido,
             fuente,
             fecha_captura
         ))
@@ -360,6 +395,20 @@ def guardar_lectura(datos: dict, fuente: str = "lora_mqtt"):
             INSERT INTO alertas (tipo, animal_id, device_id, descripcion, nivel, lat, lon, atendida)
             VALUES ('bateria_baja', ?, ?, ?, 'critical', ?, ?, 0)
             """, (animal_id, device_id, f"Batería crítica detectada ({bateria}%). Requiere reemplazo.", lat, lon))
+
+        # Alerta de sensor, evitando duplicados abiertos para el mismo dispositivo.
+        if tipo_alerta_sensor:
+            cursor.execute("""
+            SELECT id FROM alertas
+            WHERE tipo = ? AND atendida = 0
+              AND (? IS NULL OR device_id = ?)
+            LIMIT 1
+            """, (tipo_alerta_sensor, device_id, device_id))
+            if not cursor.fetchone():
+                cursor.execute("""
+                INSERT INTO alertas (tipo, animal_id, device_id, descripcion, nivel, lat, lon, atendida)
+                VALUES (?, ?, ?, ?, 'warning', ?, ?, 0)
+                """, (tipo_alerta_sensor, animal_id, device_id, descripcion_sensor, lat, lon))
 
         conn.commit()
 
@@ -405,8 +454,10 @@ def obtener_ultimas_ubicaciones(filtro_rancho: str = None):
             SELECT lg1.*
             FROM lecturas_gps lg1
             INNER JOIN (
+                -- Fail-safe: un reporte (0,0) sin fix no puede convertirse en la posición vigente.
                 SELECT animal_id, MAX(id) as max_id
                 FROM lecturas_gps
+                WHERE fix_valido = 1 OR (lat <> 0 OR lon <> 0)
                 GROUP BY animal_id
             ) lg2 ON lg1.id = lg2.max_id
         ) l ON a.id = l.animal_id
@@ -449,11 +500,20 @@ def obtener_ultimas_ubicaciones(filtro_rancho: str = None):
                 except Exception:
                     pass
 
+            # Una posición retenida por falta de fix se marca como desactualizada
+            # aunque el último reporte haya llegado hace segundos.
+            f["posicion_desactualizada"] = bool(f.get("fix_valido") == 0)
+            if f["posicion_desactualizada"]:
+                estado_vig = "retrasada"
+                color_vig = "orange"
+
             f["estado_vigencia"] = estado_vig
             f["color_vigencia"] = color_vig
             f["segundos_desde_ultimo_reporte"] = seg_dif
-            f["tiempo_relativo"] = f"{int(seg_dif // 60)} min" if seg_dif < 3600 else f"{int(seg_dif // 3600)} h"
-            
+            f["tiempo_relativo"] = "sin fix GPS" if f["posicion_desactualizada"] else (
+                f"{int(seg_dif // 60)} min" if seg_dif < 3600 else f"{int(seg_dif // 3600)} h"
+            )
+
             resultados.append(f)
             
         return resultados

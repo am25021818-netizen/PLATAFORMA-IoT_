@@ -75,8 +75,10 @@ void loop() {
     contadorPaquetes++;
 
     bool fixValido = gps.location.isValid();
-    double latitud = fixValido ? gps.location.lat() : 20.37542; // Coordenada de prueba si no hay fix en laboratorio
-    double longitud = fixValido ? gps.location.lng() : -99.65431;
+    // Fail-safe (firmware/AGENTS.md): sin fix se envían coordenadas nulas y el flag explícito.
+    // El gateway y la plataforma se encargan de conservar la última posición válida.
+    double latitud = fixValido ? gps.location.lat() : 0.0;
+    double longitud = fixValido ? gps.location.lng() : 0.0;
     float altitud = gps.altitude.isValid() ? gps.altitude.meters() : 2105.0;
     float velocidad = gps.speed.isValid() ? gps.speed.kmph() : 0.0;
     int satelites = gps.satellites.isValid() ? gps.satellites.value() : 0;

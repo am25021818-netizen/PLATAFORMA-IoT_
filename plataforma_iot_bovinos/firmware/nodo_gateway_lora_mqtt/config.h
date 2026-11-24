@@ -20,5 +20,6 @@
 #define BAND                915E6
 #define LORA_SPREADING      7
 #define LORA_BW             125E3
+#define LORA_TX_POWER       20      // 20 dBm (PA_BOOST), coherente con el collar
 
 #endif
