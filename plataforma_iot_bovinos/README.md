@@ -76,7 +76,8 @@ plataforma_iot_bovinos/
 │   ├── templates/                     # Jinja2 (dashboard, mapa, alertas, reportes...)
 │   └── static/                        # CSS, JS e imágenes
 └── docs/
-    ├── despliegue_subdominio.md       # Publicación HTTPS con subdominio
+    ├── despliegue_subdominio.md       # Publicación HTTPS con subdominio (Cloudflare / VPS)
+    ├── despliegue_sti.md              # Reemplazo de ThingsBoard en sti.itsoeh.edu.mx
     └── guion_presentacion_final.md    # Guion para evaluación en clase
 ```
 
@@ -143,6 +144,8 @@ Abre http://localhost:5000. Para producción define `FLASK_SECRET_KEY` en el ent
 | `tecnico@mezquital.mx` | `tecnico123` | `tecnico_mantenimiento` |
 
 Cambia estas credenciales antes de cualquier despliegue público.
+
+Para desplegar en el servidor ITESHU (`sti.itsoeh.edu.mx`) y sustituir ThingsBoard, sigue la guía completa: [`docs/despliegue_sti.md`](docs/despliegue_sti.md).
 
 ---
 

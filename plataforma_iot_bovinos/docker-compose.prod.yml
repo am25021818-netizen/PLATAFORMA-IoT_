@@ -1,0 +1,41 @@
+# Despliegue de producción para el servidor STI-ITESHU.
+# Uso: docker compose -f docker-compose.prod.yml up -d --build
+# Los servicios se enlazan solo a 127.0.0.1; Nginx se encarga de 80/443.
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: iteshu_mosquitto
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./plataforma/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  streamlit:
+    build: ./plataforma
+    container_name: iteshu_streamlit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8501:8501"
+    environment:
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: 1883
+      DB_PATH: /app/data/datos_iot.db
+    volumes:
+      - ./plataforma/data:/app/data
+    depends_on:
+      - mosquitto
+
+  flask:
+    build:
+      context: ./webapp
+      dockerfile: Dockerfile.prod
+    container_name: iteshu_flask
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5000:5000"
+    env_file:
+      - .env
+    volumes:
+      - ./webapp/database:/app/database
