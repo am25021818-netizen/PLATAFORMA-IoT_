@@ -285,7 +285,7 @@ Desde el host del servidor:
 ```bash
 cd /opt/plataforma_iot/plataforma_iot_bovinos
 sudo git pull origin main
-python3 simular_datos_integrales.py
+sudo python3 simular_datos_integrales.py
 ```
 
 Debe terminar con:
@@ -293,6 +293,8 @@ Debe terminar con:
 ```text
 RESULTADO: TODO OK
 ```
+
+> Las bases SQLite pertenecen a `root` porque fueron creadas por los contenedores; por eso el comando lleva `sudo`. Si se ejecuta sin `sudo`, el simulador ahora avisa claramente en lugar de fallar con un traceback.
 
 Si el host no tiene `python3`, ejecútalo dentro de los contenedores:
 
@@ -305,7 +307,7 @@ sudo docker exec -i iteshu_streamlit python3 - --solo-plataforma --plataforma-db
 Para solo revisar sin modificar:
 
 ```bash
-python3 simular_datos_integrales.py --verificar
+sudo python3 simular_datos_integrales.py --verificar
 ```
 
 ### Qué genera
@@ -323,7 +325,7 @@ No es necesario reiniciar los contenedores: cada petición abre una conexión nu
 Para repetir la simulación con otra ventana de tiempo:
 
 ```bash
-python3 simular_datos_integrales.py --horas 24 --intervalo-minutos 10
+sudo python3 simular_datos_integrales.py --horas 24 --intervalo-minutos 10
 ```
 
 Los archivos `*.db` y `*.db.bak` están excluidos de Git.

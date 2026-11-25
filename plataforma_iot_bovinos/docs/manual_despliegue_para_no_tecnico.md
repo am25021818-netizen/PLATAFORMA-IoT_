@@ -485,10 +485,10 @@ Cuando quieras mostrar la plataforma con ejemplos completos —no vacía ni en r
 ```bash
 cd /opt/plataforma_iot/plataforma_iot_bovinos
 sudo git pull origin main
-python3 simular_datos_integrales.py
+sudo python3 simular_datos_integrales.py
 ```
 
-**Interpretación sencilla:** estás pidiendo al sistema que invente un hato de demostración con 12 vacas y toros, sus collares, sus movimientos de dos días y varias alertas. Es como poner ejemplos en una libreta antes de enseñarla.
+**Interpretación sencilla:** estás pidiendo al sistema que invente un hato de demostración con 12 vacas y toros, sus collares, sus movimientos de dos días y varias alertas. Es como poner ejemplos en una libreta antes de enseñarla. La palabra `sudo` es necesaria porque esas libretas pertenecen al administrador del servidor.
 
 Al terminar debe decir:
 

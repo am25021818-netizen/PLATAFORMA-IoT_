@@ -23,7 +23,7 @@ Opciones:
 - `--verificar` solo imprime el estado sin escribir.
 - `--no-backup` desactiva la copia `.bak` previa.
 
-Antes de escribir, si la base existe, se crea `bovinos_iot.db.bak` / `datos_iot.db.bak`.
+Antes de escribir, si la base existe, se crea `bovinos_iot.db.bak` / `datos_iot.db.bak`. El script valida permisos de escritura y, si la base fue creada por un contenedor root, indica que debe ejecutarse con `sudo`.
 
 ## 3. Conjunto de datos
 

@@ -239,6 +239,17 @@ def existe_tabla(conn: sqlite3.Connection, nombre: str) -> bool:
     return fila is not None
 
 
+def asegurar_escritura(path: Path) -> None:
+    """Evita fallos confusos cuando la base fue creada por un contenedor root."""
+    sin_carpeta = not os.access(str(path.parent), os.W_OK)
+    sin_archivo = path.exists() and not os.access(str(path), os.W_OK)
+    if sin_carpeta or sin_archivo:
+        raise SystemExit(
+            f"ERROR: sin permisos para escribir en {path}. "
+            "Ejecuta: sudo python3 simular_datos_integrales.py"
+        )
+
+
 def respaldar(path: Path, activo: bool) -> None:
     if not activo or not path.exists():
         return
@@ -451,6 +462,7 @@ def asegurar_esquema_webapp(conn: sqlite3.Connection) -> None:
 
 def poblar_webapp(path: Path, horas: int, intervalo: int, ahora: datetime,
                   hacer_backup: bool) -> None:
+    asegurar_escritura(path)
     respaldar(path, hacer_backup)
     conn = conecta(path)
     try:
@@ -551,6 +563,7 @@ def asegurar_esquema_plataforma(conn: sqlite3.Connection) -> None:
 
 def poblar_plataforma(path: Path, horas: int, intervalo: int, ahora: datetime,
                       hacer_backup: bool) -> None:
+    asegurar_escritura(path)
     respaldar(path, hacer_backup)
     conn = conecta(path)
     try:
