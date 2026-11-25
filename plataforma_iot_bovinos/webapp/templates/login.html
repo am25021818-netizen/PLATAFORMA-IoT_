@@ -26,7 +26,7 @@
       align-items: center;
       justify-content: center;
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      padding: 1.5rem;
+      padding: 1.5rem 1.5rem 5.5rem;
     }
     .login-card {
       background: #ffffff;
@@ -93,6 +93,22 @@
     .role-badge:hover {
       transform: scale(1.02);
     }
+    .login-footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10;
+      padding: 0.7rem 1.5rem;
+      background: rgba(9, 13, 22, 0.88);
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 0.76rem;
+      text-align: center;
+      backdrop-filter: blur(6px);
+    }
+    .login-footer strong { color: #ffffff; }
+    .login-footer .footer-credit { color: rgba(255, 255, 255, 0.52); font-size: 0.7rem; }
   </style>
 </head>
 <body>
@@ -165,6 +181,16 @@
       </div>
     </div>
   </div>
+
+  <footer class="login-footer">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-1">
+      <span><strong>ITESHU</strong> &bull; Maestría en Ingeniería Mecatrónica &bull; Internet de las Cosas</span>
+      <span>Plataforma IoT de Monitoreo Bovino &bull; Valle del Mezquital, Hidalgo &copy; 2026</span>
+    </div>
+    <div class="footer-credit mt-1">
+      Estudiante: Ing. Iván Rodríguez Hernández &bull; Docente: DTI. Carlos Arturo Espinoza Galicia
+    </div>
+  </footer>
 
   <script>
     function rellenar(correo, pass) {
