@@ -1,5 +1,6 @@
 import unittest
 import sys
+from datetime import datetime
 from pathlib import Path
 
 SRC_PATH = Path(__file__).resolve().parent.parent / "plataforma" / "src"
@@ -40,7 +41,7 @@ class TestDatabase(unittest.TestCase):
             "snr_db": 9.0,
             "satelites": 8,
             "fix_valido": True,
-            "timestamp": "2026-11-19 23:59:59"
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         database.guardar_lectura(datos)
         historial = database.obtener_historial_animal("BOV-001", limite=1)
@@ -55,7 +56,7 @@ class TestDatabase(unittest.TestCase):
             "lon": -99.65700,
             "bateria_pct": 12,
             "fix_valido": True,
-            "timestamp": "2026-11-19 15:05:00"
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         database.guardar_lectura(datos)
         alertas = database.obtener_alertas(solo_pendientes=True)
