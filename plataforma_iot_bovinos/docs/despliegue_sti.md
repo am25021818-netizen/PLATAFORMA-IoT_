@@ -46,8 +46,8 @@ sudo cp -a /var/lib/thingsboard /opt/respaldos/thingsboard-$(date +%F)/ 2>/dev/n
 Si corre en Docker:
 
 ```bash
-docker ps -a | grep -i thingsboard
-docker volume ls | grep -i thingsboard
+sudo docker ps -a | grep -i thingsboard
+sudo docker volume ls | grep -i thingsboard
 
 docker run --rm \
   -v thingsboard_data:/data \
@@ -62,7 +62,7 @@ docker run --rm \
 ```bash
 sudo ss -tlnp | grep -E ':80|:443|:8080'
 systemctl list-units --type=service | grep -i things
-docker ps -a | grep -i things
+sudo docker ps -a | grep -i things
 ```
 
 ### Servicio systemd
@@ -75,8 +75,8 @@ sudo systemctl disable thingsboard
 ### Contenedor Docker
 
 ```bash
-docker stop thingsboard
-docker rm thingsboard
+sudo docker stop thingsboard
+sudo docker rm thingsboard
 # o:
 docker compose -f /opt/thingsboard/docker-compose.yml down
 ```
@@ -124,11 +124,13 @@ ls -l docker-compose.prod.yml webapp/Dockerfile.prod plataforma/mosquitto.conf
 `.env` no se versiona por seguridad:
 
 ```bash
-sudo bash -c 'cat > .env <<EOF
+sudo tee .env >/dev/null <<'EOF'
 FLASK_SECRET_KEY=cambia-esta-clave-por-una-larga-y-aleatoria
-EOF'
+EOF
 sudo chmod 600 .env
 ```
+
+> Si por algún motivo el prompt quedó en `>`, presiona **Ctrl+C** para cancelar y pega el bloque completo otra vez. No escribas comillas adicionales: `sudo tee` evita el problema de las comillas anidadas.
 
 Cambia también las contraseñas de demostración en `webapp/database/seed.sql` antes de publicar.
 

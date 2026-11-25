@@ -132,8 +132,8 @@ sudo cp -a /var/lib/thingsboard /opt/respaldos/thingsboard-$(date +%F)/ 2>/dev/n
 Si ThingsBoard estaba en Docker (lo más probable), además ejecuta:
 
 ```bash
-docker ps -a | grep -i thingsboard
-docker volume ls | grep -i thingsboard
+sudo docker ps -a | grep -i thingsboard
+sudo docker volume ls | grep -i thingsboard
 ```
 
 Si ves un volumen con nombre parecido a `thingsboard_data`, guarda su contenido:
@@ -156,7 +156,7 @@ Primero averigua cómo estaba encendido:
 ```bash
 sudo ss -tlnp | grep -E ':80|:443|:8080'
 systemctl list-units --type=service | grep -i things
-docker ps -a | grep -i things
+sudo docker ps -a | grep -i things
 ```
 
 Dependiendo de lo que aparezca, elige **una** de estas opciones:
@@ -173,11 +173,11 @@ sudo systemctl disable thingsboard
 **Si aparece como contenedor Docker:**
 
 ```bash
-docker stop thingsboard
-docker rm thingsboard
+sudo docker stop thingsboard
+sudo docker rm thingsboard
 ```
 
-Si el nombre no es exactamente `thingsboard`, copia el nombre que apareció en `docker ps -a`.
+Si el nombre no es exactamente `thingsboard`, copia el nombre que apareció en `sudo docker ps -a`.
 
 **Si Nginx lo redirigía:**
 
@@ -229,11 +229,13 @@ ls -l docker-compose.prod.yml webapp/Dockerfile.prod plataforma/mosquitto.conf
 ### Paso 7 — Crear el archivo secreto
 
 ```bash
-sudo bash -c 'cat > .env <<EOF
+sudo tee .env >/dev/null <<'EOF'
 FLASK_SECRET_KEY=cambia-esta-clave-por-una-larga-y-aleatoria
-EOF'
+EOF
 sudo chmod 600 .env
 ```
+
+**Si el prompt cambió a `>` y no sabes cómo salir:** presiona **Ctrl+C** y pega el bloque completo otra vez. No escribas comillas adicionales; esta versión con `sudo tee` es más segura.
 
 **Interpretación:** creas una "llave" para que nadie pueda falsificar el inicio de sesión de tu sitio. Sustituye el texto `cambia-esta-clave...` por una frase larga y aleatoria, por ejemplo:
 
