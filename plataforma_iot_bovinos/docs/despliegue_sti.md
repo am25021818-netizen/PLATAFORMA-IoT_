@@ -273,3 +273,57 @@ sudo docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Las bases de datos viven en `./plataforma/data` y `./webapp/database`, por lo que sobreviven a reconstrucciones de imagen.
+
+---
+
+## 14. Cargar datos de prueba integrales
+
+Para demostrar el sitio con un hato completo, usa el simulador incluido. **Solo ejecútalo en un entorno de prueba**: reemplaza el catálogo simulado y deja copias `.bak` de las bases anteriores.
+
+Desde el host del servidor:
+
+```bash
+cd /opt/plataforma_iot/plataforma_iot_bovinos
+sudo git pull origin main
+python3 simular_datos_integrales.py
+```
+
+Debe terminar con:
+
+```text
+RESULTADO: TODO OK
+```
+
+Si el host no tiene `python3`, ejecútalo dentro de los contenedores:
+
+```bash
+cd /opt/plataforma_iot/plataforma_iot_bovinos
+sudo docker exec -i iteshu_flask python3 - --solo-webapp --webapp-db /app/database/bovinos_iot.db < simular_datos_integrales.py
+sudo docker exec -i iteshu_streamlit python3 - --solo-plataforma --plataforma-db /app/data/datos_iot.db < simular_datos_integrales.py
+```
+
+Para solo revisar sin modificar:
+
+```bash
+python3 simular_datos_integrales.py --verificar
+```
+
+### Qué genera
+
+- 12 bovinos activos, 12 collares y 3 gateways por cada base.
+- 3 ranchos y 4 potreros del Valle del Mezquital.
+- 48 horas de telemetría cada 15 minutos: 2,318 lecturas por base.
+- Semáforo webapp: **7 verdes, 3 amarillos y 2 rojos**.
+- Semáforo Streamlit: **6 actualizados, 4 retrasados y 2 sin comunicación**.
+- 9 alertas activas y 3 atendidas, con 5 tipos en Flask y 6 en Streamlit.
+- Dos lecturas con `fix_valido=0` que conservan la última coordenada válida y se muestran como posición desactualizada.
+
+No es necesario reiniciar los contenedores: cada petición abre una conexión nueva. Recarga el navegador con `Ctrl + F5`.
+
+Para repetir la simulación con otra ventana de tiempo:
+
+```bash
+python3 simular_datos_integrales.py --horas 24 --intervalo-minutos 10
+```
+
+Los archivos `*.db` y `*.db.bak` están excluidos de Git.

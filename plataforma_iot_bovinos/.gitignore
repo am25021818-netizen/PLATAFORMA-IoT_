@@ -15,6 +15,7 @@ __pycache__/
 
 # Bases de datos y archivos de diario/WAL (nunca versionar)
 *.db
+*.db.bak
 *.db-journal
 *.db-wal
 *.db-shm

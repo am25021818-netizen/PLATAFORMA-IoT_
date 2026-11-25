@@ -478,4 +478,42 @@ Tus datos no se pierden: las bases de datos están en `plataforma/data` y `webap
 
 ---
 
+## 11. Llenar el sitio con datos de prueba de bovinos
+
+Cuando quieras mostrar la plataforma con ejemplos completos —no vacía ni en rojo— ejecuta esto en el servidor:
+
+```bash
+cd /opt/plataforma_iot/plataforma_iot_bovinos
+sudo git pull origin main
+python3 simular_datos_integrales.py
+```
+
+**Interpretación sencilla:** estás pidiendo al sistema que invente un hato de demostración con 12 vacas y toros, sus collares, sus movimientos de dos días y varias alertas. Es como poner ejemplos en una libreta antes de enseñarla.
+
+Al terminar debe decir:
+
+```text
+RESULTADO: TODO OK
+```
+
+Si no hay `python3` en el servidor, usa esta otra forma:
+
+```bash
+sudo docker exec -i iteshu_flask python3 - --solo-webapp --webapp-db /app/database/bovinos_iot.db < simular_datos_integrales.py
+sudo docker exec -i iteshu_streamlit python3 - --solo-plataforma --plataforma-db /app/data/datos_iot.db < simular_datos_integrales.py
+```
+
+Después recarga la página con `Ctrl + F5`. Ya no necesitas reiniciar nada.
+
+**Qué verás:**
+
+- En el sitio principal: 12 animales, 12 collares, 3 ranchos, gráficas de razas y baterías, y un reporte con distancias recorridas.
+- En el mapa: animales verdes, amarillos y rojos, según qué tan reciente sea su último aviso.
+- En el dashboard: alertas de batería baja, desconexión, salida del potrero y velocidad anómala.
+- Dos animales tendrán una posición "desactualizada" a propósito, para demostrar que el sistema no inventa coordenadas cuando el GPS falla.
+
+**Importante:** esto es solo para prueba o demostración. Si algún día entran datos reales de collares, **no vuelvas a ejecutar este comando**, porque sustituiría la libreta de datos de ejemplo. ANTES de ejecutarlo se guardan copias de seguridad con extensión `.bak`.
+
+---
+
 **En resumen:** tú no estás "programando" el servidor; estás **cerrando un local anterior (ThingsBoard), mudando tres cajas con tu aplicación, poniendo un recepcionista (Nginx) y un candado (HTTPS)**. Si sigues los pasos en orden y haces el respaldo, el proceso es seguro y reversible.

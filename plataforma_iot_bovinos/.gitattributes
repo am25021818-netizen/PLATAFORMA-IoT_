@@ -1,5 +1,7 @@
 # Evita que Git aplique conversiones de fin de línea a archivos binarios.
 *.pdf binary
+*.db binary
+*.db.bak binary
 *.png binary
 *.jpg binary
 *.jpeg binary
